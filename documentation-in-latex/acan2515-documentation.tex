@@ -1834,19 +1834,20 @@ void setup () {
 Be aware to always respect CAN bit timing consistency! The constraints are:
 
 \begin{align*}
-1 & \leqslant \texttt{mBitRatePrescaler} \leqslant 256 \\
-1 & \leqslant \texttt{mRJW} \leqslant 4 \\
+1 & \leqslant \texttt{mBitRatePrescaler} \leqslant 64 \\
+1 & \leqslant \texttt{mSJW} \leqslant 4 \\
 1 & \leqslant \texttt{mPropagationSegment} \leqslant 8 \\
 \text{Single sampling: }1 & \leqslant \texttt{mPhaseSegment1} \leqslant 8\\
 \text{Triple sampling: }2 & \leqslant \texttt{mPhaseSegment1} \leqslant 8\\
 2 & \leqslant \texttt{mPhaseSegment2} \leqslant 8 \\
-\texttt{mRJW} &\leqslant \texttt{mPhaseSegment2}
+\texttt{mSJW} &<\texttt{mPhaseSegment2}\\
+\texttt{mPhaseSegment2} & \leqslant \texttt{mPropagationSegment} + \texttt{mPhaseSegment1}
 \end{align*}
 
 Resulting actual bit rate is given by:
 {\small
 \begin{align*}
-\text{Actual bit rate} & = \frac{16~\text{MHz}}{\texttt{mBitRatePrescaler} \cdot (1 + \texttt{mPropagationSegment} + \texttt{mPhaseSegment1} + \texttt{mPhaseSegment2})}
+\text{Actual bit rate} & = \frac{QuartzFrequency~/~2}{\texttt{mBitRatePrescaler} \cdot (1 + \texttt{mPropagationSegment} + \texttt{mPhaseSegment1} + \texttt{mPhaseSegment2})}
 \end{align*}
 }
 
@@ -1900,7 +1901,7 @@ The \texttt{CANBitSettingConsistency} method returns $0$ if CAN bit decompositio
     31 -- 11 & 10 & 9 & 8 & 7 & 6 & 5 & 4 & 3 & 2 & 1 & 0 & \\
     \zero~...  \zero &\zero &\zero &\zero &\zero &\zero &\zero &\zero &\zero &\zero &\zero &\zero & No error \\
     \zero~...  \zero &\X &\X &\X &\X &\X &\X &\X &\X &\X &\X &\texttt{1} & \texttt{mBitRatePrescaler} == 0\\
-    \zero~...  \zero &\X &\X &\X &\X &\X &\X &\X &\X &\X &\texttt{1}&\X & \texttt{mBitRatePrescaler} > 256\\
+    \zero~...  \zero &\X &\X &\X &\X &\X &\X &\X &\X &\X &\texttt{1}&\X & \texttt{mBitRatePrescaler} > 64\\
     \zero~...  \zero &\X &\X &\X &\X &\X &\X &\X &\X &\texttt{1}&\X &\X & \texttt{mPropagationSegment} == 0\\
     \zero~...  \zero &\X &\X &\X &\X &\X &\X &\X &\texttt{1}&\X &\X &\X & \texttt{mPropagationSegment} > 8\\
     \zero~...  \zero &\X &\X &\X &\X &\X &\X &\texttt{1}&\X &\X &\X &\X & \texttt{mPhaseSegment1} == 0\\

@@ -53,8 +53,10 @@ class ACANSettings2515 {
 //--- Receive buffer size
   public: uint16_t mReceiveBufferSize = 32 ;
 
-//--- Transmit buffer size
-  public: uint16_t mTransmitBufferSize = 16 ;
+//--- Transmit buffer sizes
+  public: uint16_t mTransmitBuffer0Size = 16 ;
+  public: uint16_t mTransmitBuffer1Size = 0 ;
+  public: uint16_t mTransmitBuffer2Size = 0 ;
 
 //--- Compute actual bit rate
   public: uint32_t actualBitRate (void) const ;

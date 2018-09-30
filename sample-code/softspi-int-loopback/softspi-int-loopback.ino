@@ -1,5 +1,5 @@
 //——————————————————————————————————————————————————————————————————————————————
-//  ACAN2515 Demo in loopback mode
+//  ACAN2515 Demo in loopback mode, with an external interrupt
 //——————————————————————————————————————————————————————————————————————————————
 
 #include <ACAN2515.h>
@@ -28,9 +28,8 @@ static const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 ACAN2515 can (MCP2515_CS, MCP2515_CLK, MCP2515_SI, MCP2515_SO) ;
 
 //——————————————————————————————————————————————————————————————————————————————
-volatile int x = 0 ;
+
 void canISR (void) {
-  x ++ ;
   can.isr () ;
 }
 
@@ -87,18 +86,17 @@ void setup () {
 static unsigned gBlinkLedDate = 0 ;
 static unsigned gReceivedFrameCount = 0 ;
 static unsigned gSentFrameCount = 0 ;
-int xx = 0 ;
+static uint8_t gTransmitBufferIndex = 0 ;
+
 //——————————————————————————————————————————————————————————————————————————————
 
 void loop() {
-  if (xx < x) {
-    xx = x ;
-    Serial.println (xx) ;
-  }
   CANMessage frame ;
   if (gBlinkLedDate < millis ()) {
     gBlinkLedDate += 2000 ;
     digitalWrite (LED_BUILTIN, !digitalRead (LED_BUILTIN)) ;
+    frame.idx = gTransmitBufferIndex ;
+    gTransmitBufferIndex = (gTransmitBufferIndex + 1) % 3 ;
     const bool ok = can.tryToSend (frame) ;
     if (ok) {
       gSentFrameCount += 1 ;

@@ -9,8 +9,8 @@
 
 //——————————————————————————————————————————————————————————————————————————————
 
-#include <CANMessage.h>
-#include "ACAN2515Settings.h"
+#include <ACANBuffer.h>
+#include <ACAN2515Settings.h>
 
 //——————————————————————————————————————————————————————————————————————————————
 
@@ -34,14 +34,12 @@ class ACAN2515 {
 
 //--- Transmitting messages
   public: bool tryToSend (const CANMessage & inMessage) ;
-  public: inline uint32_t transmitBufferSize (void) const { return mTransmitBufferSize ; }
-  public: inline uint32_t transmitBufferCount (void) const { return mTransmitBufferCount ; }
-  public: inline uint32_t transmitBufferPeakCount (void) const { return mTransmitBufferPeakCount ; }
 
 //--- Handling messages to send and receiving messages
   public: void polling (void) ;
   public: void isr (void) ;
   private: void handleTXBInterrupt (const uint8_t inTXB) ;
+  private: void handleRXBInterrupt (void) ;
 
  //--- Properties
   public: const uint8_t mCS ;
@@ -51,21 +49,24 @@ class ACAN2515 {
   private: bool mTXB0IsFree ;
 
 //--- Receive buffer
-  private: CANMessage * volatile mReceiveBuffer = NULL ;
-  private: uint32_t mReceiveBufferSize = 0 ;
-  private: uint32_t mReceiveBufferReadIndex = 0 ; // Only used in user mode --> no volatile
-  private: uint32_t mReceiveBufferWriteIndex = 0 ; // Only used in isr --> no volatile
-  private: volatile uint32_t mReceiveBufferCount = 0 ; // Used in isr and user mode --> volatile
-  private: uint32_t mReceiveBufferPeakCount = 0 ; // == mReceiveBufferSize if overflow did occur
+  private: ACANBuffer mReceiveBuffer ;
 
 //--- Driver transmit buffer
-  private: CANMessage * volatile mTransmitBuffer = NULL ;
-  private: uint32_t mTransmitBufferSize = 0 ;
-  private: uint32_t mTransmitBufferReadIndex = 0 ; // Only used in isr --> no volatile
-  private: uint32_t mTransmitBufferWriteIndex = 0 ; // Only used in user mode --> no volatile
-  private: volatile uint32_t mTransmitBufferCount = 0 ; // Used in isr and user mode --> volatile
-  private: uint32_t mTransmitBufferPeakCount = 0 ; // == mTransmitBufferSize if tentative overflow did occur
+  private: ACANBuffer mTransmitBuffer [3] ;
+  private: bool mTXBIsFree [3] ;
   private: void internalSendMessage (const CANMessage & inFrame, const uint8_t inTXB) ;
+
+  public: inline uint32_t transmitBufferSize (const uint8_t inIndex) const {
+    return mTransmitBuffer [inIndex].size () ;
+  }
+
+  public: inline uint32_t transmitBufferCount (const uint8_t inIndex) const {
+    return mTransmitBuffer [inIndex].count () ;
+  }
+
+  public: inline uint32_t transmitBufferPeakCount (const uint8_t inIndex) const {
+    return mTransmitBuffer [inIndex].peakCount () ;
+  }
 
 //--- Private methods
   private: uint32_t internalBeginOperation (const ACANSettings2515 & inSettings) ;

@@ -1,6 +1,6 @@
 //——————————————————————————————————————————————————————————————————————————————
 //  ACAN2515 / ACAN Demo 
-//  ACAN2515 uses soft SPI and an external interrupt pin
+//  ACAN2515 uses software SPI and an external interrupt pin
 //  This sketch runs only on a Teensy 3.x
 //  It uses the Teensy 3.x builtin CAN0 interface for testing intensive
 //  communication with a MCP2515 CAN controller.
@@ -33,12 +33,6 @@ static const byte MCP2515_SO  = 39 ; // SO output of MCP2515
 static const byte MCP2515_IRQ = 37 ; // INT output of MCP2515
 
 //——————————————————————————————————————————————————————————————————————————————
-//  MCP2515 Quartz: adapt to your design
-//——————————————————————————————————————————————————————————————————————————————
-
-static const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
-
-//——————————————————————————————————————————————————————————————————————————————
 
 ACAN2515 can (MCP2515_CS, MCP2515_CLK, MCP2515_SI, MCP2515_SO) ;
 
@@ -49,6 +43,12 @@ void canISR (void) {
 }
 
 //——————————————————————————————————————————————————————————————————————————————
+//  MCP2515 Quartz: adapt to your design
+//——————————————————————————————————————————————————————————————————————————————
+
+static const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
+
+//——————————————————————————————————————————————————————————————————————————————
 
 void setup () {
 //--- Switch on builtin led
@@ -56,7 +56,7 @@ void setup () {
   digitalWrite (LED_BUILTIN, HIGH) ;
 //--- Start serial
   Serial.begin (38400) ;
-//--- Wait for serial (blink led à 10 Hz during waiting)
+//--- Wait for serial (blink led at 10 Hz during waiting)
   while (!Serial) {
     delay (50) ;
     digitalWrite (LED_BUILTIN, !digitalRead (LED_BUILTIN)) ;

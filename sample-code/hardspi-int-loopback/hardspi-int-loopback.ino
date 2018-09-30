@@ -1,19 +1,26 @@
 //——————————————————————————————————————————————————————————————————————————————
-//  ACAN2515 Demo in loopback mode, using software SPI and no MCP2515 interrupt
+//  ACAN2515 Demo in loopback mode, using hardware SPI, with an external interrupt
 //——————————————————————————————————————————————————————————————————————————————
 
 #include <ACAN2515.h>
 
 //——————————————————————————————————————————————————————————————————————————————
 //  MCP2515 connections: adapt theses settings to your design
-//  As Soft SPI is used (SPI is emulated with digital pins), you can use any
-//  digital pins.
+//  As hardware SPI is used, you should select pins that support SPI functions.
+//  This sketch is designed for a Teensy 3.5, using SPI0 (named SPI)
+//  But standard Teensy 3.5 SPI0 pins are not used
+//    CLK input of MCP2515 is pin #27
+//    SI input of MCP2515 is pin #28
+//    SO output of MCP2515 is pin #39
+//  User code should configure MCP2515_IRQ pin as external interrupt
 //——————————————————————————————————————————————————————————————————————————————
 
-static const byte MCP2515_CS  = 20 ; // CS input of MCP2515 
 static const byte MCP2515_CLK = 27 ; // CLK input of MCP2515 
 static const byte MCP2515_SI  = 28 ; // SI input of MCP2515  
 static const byte MCP2515_SO  = 39 ; // SO output of MCP2515 
+
+static const byte MCP2515_CS  = 20 ; // CS input of MCP2515 
+static const byte MCP2515_IRQ = 37 ; // INT output of MCP2515
 
 //——————————————————————————————————————————————————————————————————————————————
 //  MCP2515 Quartz: adapt to your design
@@ -23,7 +30,13 @@ static const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 
 //——————————————————————————————————————————————————————————————————————————————
 
-ACAN2515 can (MCP2515_CS, MCP2515_CLK, MCP2515_SI, MCP2515_SO) ;
+ACAN2515 can (MCP2515_CS, SPI, 10 * 1000 * 1000) ; // SPI0 at 10 MHz
+
+//——————————————————————————————————————————————————————————————————————————————
+
+void canISR (void) {
+  can.isr () ;
+}
 
 //——————————————————————————————————————————————————————————————————————————————
 
@@ -38,6 +51,25 @@ void setup () {
     delay (50) ;
     digitalWrite (LED_BUILTIN, !digitalRead (LED_BUILTIN)) ;
   }
+//--- Define alternate pins for SPI0 (see https://www.pjrc.com/teensy/td_libs_SPI.html)
+  Serial.print ("Using pin #") ;
+  Serial.print (MCP2515_SI) ;
+  Serial.print (" for MOSI: ") ;
+  Serial.println (SPI.pinIsMOSI (MCP2515_SI) ? "yes" : "NO!!!") ;
+  Serial.print ("Using pin #") ;
+  Serial.print (MCP2515_SO) ;
+  Serial.print (" for MISO: ") ;
+  Serial.println (SPI.pinIsMISO (MCP2515_SO) ? "yes" : "NO!!!") ;
+  Serial.print ("Using pin #") ;
+  Serial.print (MCP2515_CLK) ;
+  Serial.print (" for CLK: ") ;
+  Serial.println (SPI.pinIsSCK (MCP2515_CLK) ? "yes" : "NO!!!") ;
+  SPI.setMOSI (MCP2515_SI) ;
+  SPI.setMISO (MCP2515_SO) ;
+  SPI.setSCK (MCP2515_CLK) ;
+//--- Configure MCP2515_IRQ as external input
+  pinMode (MCP2515_IRQ, INPUT_PULLUP) ;
+  attachInterrupt (digitalPinToInterrupt (MCP2515_IRQ), canISR, LOW) ;
 //--- Configure ACAN2515
   Serial.println ("Configure ACAN2515") ;
   ACANSettings2515 settings (QUARTZ_FREQUENCY, 125 * 1000) ; // CAN bit rate 125 kb/s
@@ -75,15 +107,17 @@ void setup () {
 static unsigned gBlinkLedDate = 0 ;
 static unsigned gReceivedFrameCount = 0 ;
 static unsigned gSentFrameCount = 0 ;
+static uint8_t gTransmitBufferIndex = 0 ;
 
 //——————————————————————————————————————————————————————————————————————————————
 
 void loop() {
-  can.polling () ; // No MCP2515 interrupt, call this function as often as possible
   CANMessage frame ;
   if (gBlinkLedDate < millis ()) {
     gBlinkLedDate += 2000 ;
     digitalWrite (LED_BUILTIN, !digitalRead (LED_BUILTIN)) ;
+    frame.idx = gTransmitBufferIndex ;
+    gTransmitBufferIndex = (gTransmitBufferIndex + 1) % 3 ;
     const bool ok = can.tryToSend (frame) ;
     if (ok) {
       gSentFrameCount += 1 ;

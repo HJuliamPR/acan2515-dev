@@ -1,5 +1,5 @@
 //——————————————————————————————————————————————————————————————————————————————
-//  ACAN2515 Demo in loopback mode, with an external interrupt
+//  ACAN2515 Demo in loopback mode, using software SPI and the MCP2515 interrupt
 //——————————————————————————————————————————————————————————————————————————————
 
 #include <ACAN2515.h>
@@ -41,7 +41,7 @@ void setup () {
   digitalWrite (LED_BUILTIN, HIGH) ;
 //--- Start serial
   Serial.begin (38400) ;
-//--- Wait for serial (blink led à 10 Hz during waiting)
+//--- Wait for serial (blink led at 10 Hz during waiting)
   while (!Serial) {
     delay (50) ;
     digitalWrite (LED_BUILTIN, !digitalRead (LED_BUILTIN)) ;

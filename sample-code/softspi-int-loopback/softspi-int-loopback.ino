@@ -7,14 +7,15 @@
 //——————————————————————————————————————————————————————————————————————————————
 //  MCP2515 connections: adapt theses settings to your design
 //  As Soft SPI is used (SPI is emulated with digital pins), you can use any
-//  digital pin.
+//  digital pins.
+//  User code should configure MCP2515_IRQ pin as external interrupt
 //——————————————————————————————————————————————————————————————————————————————
 
 static const byte MCP2515_CS  = 20 ; // CS input of MCP2515 
 static const byte MCP2515_CLK = 27 ; // CLK input of MCP2515 
 static const byte MCP2515_SI  = 28 ; // SI input of MCP2515  
 static const byte MCP2515_SO  = 39 ; // SO output of MCP2515 
-static const byte MCP2515_IRQ = 37 ; // IRQ output of MCP2515
+static const byte MCP2515_IRQ = 37 ; // INT output of MCP2515
 
 //——————————————————————————————————————————————————————————————————————————————
 //  MCP2515 Quartz: adapt to your design
@@ -24,7 +25,14 @@ static const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 
 //——————————————————————————————————————————————————————————————————————————————
 
-ACAN2515 can (MCP2515_CS, MCP2515_CLK, MCP2515_SI, MCP2515_SO, MCP2515_IRQ) ;
+ACAN2515 can (MCP2515_CS, MCP2515_CLK, MCP2515_SI, MCP2515_SO) ;
+
+//——————————————————————————————————————————————————————————————————————————————
+volatile int x = 0 ;
+void canISR (void) {
+  x ++ ;
+  can.isr () ;
+}
 
 //——————————————————————————————————————————————————————————————————————————————
 
@@ -39,6 +47,9 @@ void setup () {
     delay (50) ;
     digitalWrite (LED_BUILTIN, !digitalRead (LED_BUILTIN)) ;
   }
+//--- Configure MCP2515_IRQ as external input
+  pinMode (MCP2515_IRQ, INPUT_PULLUP) ;
+  attachInterrupt (digitalPinToInterrupt (MCP2515_IRQ), canISR, LOW) ;
 //--- Configure ACAN2515
   Serial.println ("Configure ACAN2515") ;
   ACANSettings2515 settings (QUARTZ_FREQUENCY, 125 * 1000) ; // CAN bit rate 125 kb/s
@@ -76,11 +87,14 @@ void setup () {
 static unsigned gBlinkLedDate = 0 ;
 static unsigned gReceivedFrameCount = 0 ;
 static unsigned gSentFrameCount = 0 ;
-
+int xx = 0 ;
 //——————————————————————————————————————————————————————————————————————————————
 
 void loop() {
-  can.handleMessages () ; // Call this function as often as possible
+  if (xx < x) {
+    xx = x ;
+    Serial.println (xx) ;
+  }
   CANMessage frame ;
   if (gBlinkLedDate < millis ()) {
     gBlinkLedDate += 2000 ;
@@ -95,7 +109,7 @@ void loop() {
     }
   }
   if (can.available ()) {
-    can.getReceivedMessage (frame) ;
+    can.receive (frame) ;
     gReceivedFrameCount ++ ;
     Serial.print ("Received: ") ;
     Serial.println (gReceivedFrameCount) ;

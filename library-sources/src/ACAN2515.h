@@ -16,11 +16,10 @@
 
 class ACAN2515 {
 //--- Constructor: using soft SPI
-  public: ACAN2515 (const byte inCS,  // CS input of MCP2515
-                    const byte inCLK, // CLK input of MCP2515
-                    const byte inSI,  // SI input of MCP2515
-                    const byte inSO,  // SO output of MCP2515
-                    const byte inIRQ) ; // IRQ output of MCP2515
+  public: ACAN2515 (const uint8_t inCS,  // CS input of MCP2515
+                    const uint8_t inCLK, // CLK input of MCP2515
+                    const uint8_t inSI,  // SI input of MCP2515
+                    const uint8_t inSO) ;  // SO output of MCP2515
 
 //--- Initialisation: return 0 if ok, otherwise see error codes below
   public: uint32_t begin (const ACANSettings2515 & inSettings) ;
@@ -31,7 +30,7 @@ class ACAN2515 {
 
 //--- Receiving messages
   public: bool available (void) ;
-  public: bool getReceivedMessage (CANMessage & outFrame) ;
+  public: bool receive (CANMessage & outFrame) ;
 
 //--- Transmitting messages
   public: bool tryToSend (const CANMessage & inMessage) ;
@@ -40,14 +39,16 @@ class ACAN2515 {
   public: inline uint32_t transmitBufferPeakCount (void) const { return mTransmitBufferPeakCount ; }
 
 //--- Handling messages to send and receiving messages
-  public: void handleMessages (void) ;
+  public: void polling (void) ;
+  public: void isr (void) ;
+  private: void handleTXBInterrupt (const uint8_t inTXB) ;
 
  //--- Properties
-  public: const byte mCS ;
-  public: const byte mCLK ;
-  public: const byte mSI ;
-  public: const byte mSO ;
-  public: const byte mIRQ ;
+  public: const uint8_t mCS ;
+  public: const uint8_t mCLK ;
+  public: const uint8_t mSI ;
+  public: const uint8_t mSO ;
+  private: bool mTXB0IsFree ;
 
 //--- Receive buffer
   private: CANMessage * volatile mReceiveBuffer = NULL ;
@@ -55,7 +56,7 @@ class ACAN2515 {
   private: uint32_t mReceiveBufferReadIndex = 0 ; // Only used in user mode --> no volatile
   private: uint32_t mReceiveBufferWriteIndex = 0 ; // Only used in isr --> no volatile
   private: volatile uint32_t mReceiveBufferCount = 0 ; // Used in isr and user mode --> volatile
-  private: volatile uint32_t mReceiveBufferPeakCount = 0 ; // == mReceiveBufferSize if overflow did occur
+  private: uint32_t mReceiveBufferPeakCount = 0 ; // == mReceiveBufferSize if overflow did occur
 
 //--- Driver transmit buffer
   private: CANMessage * volatile mTransmitBuffer = NULL ;
@@ -63,17 +64,18 @@ class ACAN2515 {
   private: uint32_t mTransmitBufferReadIndex = 0 ; // Only used in isr --> no volatile
   private: uint32_t mTransmitBufferWriteIndex = 0 ; // Only used in user mode --> no volatile
   private: volatile uint32_t mTransmitBufferCount = 0 ; // Used in isr and user mode --> volatile
-  private: volatile uint32_t mTransmitBufferPeakCount = 0 ; // == mTransmitBufferSize if tentative overflow did occur
-  private: bool internalSendMessage (const CANMessage & inFrame) ;
+  private: uint32_t mTransmitBufferPeakCount = 0 ; // == mTransmitBufferSize if tentative overflow did occur
+  private: void internalSendMessage (const CANMessage & inFrame, const uint8_t inTXB) ;
 
 //--- Private methods
-  private: void sendByte (const byte inByte) ;
-  private: byte readByte (void) ;
-  private: void writeRegister (const byte inRegister, const byte inValue) ;
-  private: byte readRegister (const byte inRegister) ;
-  private: byte readStatus (void) ;
-  private: byte readRxStatus (void) ;
-  private: void bitModifyRegister (const uint8_t inRegister, const uint8_t inMask, const uint8_t inData) ;
+  private: uint32_t internalBeginOperation (const ACANSettings2515 & inSettings) ;
+  private: void write2515Register (const uint8_t inRegister, const uint8_t inValue) ;
+  private: uint8_t read2515Register (const uint8_t inRegister) ;
+  private: uint8_t read2515Status (void) ;
+  private: uint8_t read2515RxStatus (void) ;
+  private: void bitModify2515Register (const uint8_t inRegister, const uint8_t inMask, const uint8_t inData) ;
+  private: void sendByte (const uint8_t inByte) ;
+  private: uint8_t readByte (void) ;
 
 //--- No Copy
   private: ACAN2515 (const ACAN2515 &) ;

@@ -11,43 +11,45 @@
 //   MCP2515 COMMANDS
 //——————————————————————————————————————————————————————————————————————————————
 
-static const byte RESET_COMMAND = 0xC0 ;
-static const byte WRITE_COMMAND = 0x02 ;
-static const byte READ_COMMAND  = 0x03 ;
-static const byte BIT_MODIFY_COMMAND  = 0x05 ;
-static const byte LOAD_TX_BUFFER_COMMAND = 0x40 ;
-static const byte SEND_COMMAND = 0x80 ;
-static const byte READ_FROM_RXB0SIDH_COMMAND = 0x90 ;
-static const byte READ_FROM_RXB1SIDH_COMMAND = 0x94 ;
-static const byte READ_STATUS_COMMAND = 0xA0 ;
-static const byte RX_STATUS_COMMAND = 0xB0 ;
+static const uint8_t RESET_COMMAND = 0xC0 ;
+static const uint8_t WRITE_COMMAND = 0x02 ;
+static const uint8_t READ_COMMAND  = 0x03 ;
+static const uint8_t BIT_MODIFY_COMMAND  = 0x05 ;
+static const uint8_t LOAD_TX_BUFFER_COMMAND = 0x40 ;
+static const uint8_t SEND_COMMAND = 0x80 ;
+static const uint8_t READ_FROM_RXB0SIDH_COMMAND = 0x90 ;
+static const uint8_t READ_FROM_RXB1SIDH_COMMAND = 0x94 ;
+static const uint8_t READ_STATUS_COMMAND = 0xA0 ;
+static const uint8_t RX_STATUS_COMMAND = 0xB0 ;
 
 //——————————————————————————————————————————————————————————————————————————————
 //   MCP2515 REGISTERS
 //——————————————————————————————————————————————————————————————————————————————
 
-static const byte BFPCTRL_REGISTER   = 0x0C ;
-static const byte TXRTSCTRL_REGISTER = 0x0D ;
-static const byte CANCTRL_REGISTER   = 0x0F ;
-static const byte CNF3_REGISTER      = 0x28 ;
-static const byte CNF2_REGISTER      = 0x29 ;
-static const byte CNF1_REGISTER      = 0x2A ;
-static const byte CANINTF_REGISTER   = 0x2C ;
-static const byte RXB0CTRL_REGISTER  = 0x60 ;
-static const byte RXB1CTRL_REGISTER  = 0x70 ;
+static const uint8_t BFPCTRL_REGISTER   = 0x0C ;
+static const uint8_t TXRTSCTRL_REGISTER = 0x0D ;
+static const uint8_t CANSTAT_REGISTER   = 0x0E ;
+static const uint8_t CANCTRL_REGISTER   = 0x0F ;
+static const uint8_t CNF3_REGISTER      = 0x28 ;
+static const uint8_t CNF2_REGISTER      = 0x29 ;
+static const uint8_t CNF1_REGISTER      = 0x2A ;
+static const uint8_t CANINTF_REGISTER   = 0x2C ;
+static const uint8_t RXB0CTRL_REGISTER  = 0x60 ;
+static const uint8_t RXB1CTRL_REGISTER  = 0x70 ;
 
 //——————————————————————————————————————————————————————————————————————————————
+//   CONSTRUCTOR, SOFT SPI
+//——————————————————————————————————————————————————————————————————————————————
 
-ACAN2515::ACAN2515 (const byte inCS,
-                    const byte inCLK,
-                    const byte inSI,
-                    const byte inSO,
-                    const byte inIRQ) :
+ACAN2515::ACAN2515 (const uint8_t inCS,
+                    const uint8_t inCLK,
+                    const uint8_t inSI,
+                    const uint8_t inSO) :
 mCS (inCS),
 mCLK (inCLK),
 mSI (inSI),
 mSO (inSO),
-mIRQ (inIRQ),
+mTXB0IsFree (true),
 mReceiveBuffer (NULL),
 mReceiveBufferSize (0),
 mReceiveBufferReadIndex (0),
@@ -63,18 +65,93 @@ mTransmitBufferPeakCount (0) {
 }
 
 //——————————————————————————————————————————————————————————————————————————————
+//   BEGIN
+//——————————————————————————————————————————————————————————————————————————————
 
 uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings) {
+  noInterrupts () ;
+  //----------------------------------- Configure ports
+    pinMode (mCS,  OUTPUT) ;
+    pinMode (mCLK, OUTPUT) ;
+    pinMode (mSI,  OUTPUT) ;
+    pinMode (mSO,  INPUT_PULLUP) ;
+    digitalWrite (mCLK, LOW) ;  // CLK is low outside a command
+    digitalWrite (mCS,  HIGH) ; // CS is high outside a command
+  //----------------------------------- Internal begin
+    const uint32_t errorCode = internalBeginOperation (inSettings) ;
+  interrupts () ;
+//----------------------------------- Return
+  return errorCode ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————
+//   MESSAGE EMISSION
+//——————————————————————————————————————————————————————————————————————————————
+
+bool ACAN2515::tryToSend (const CANMessage & inMessage) {
+  noInterrupts () ;
+    bool ok = mTXB0IsFree ;
+    if (ok) { // Transmit buffer and TXB0 are both free: transmit immediatly
+      mTXB0IsFree = false ;
+      internalSendMessage (inMessage, 0) ;
+    }else{ // Enter in transmit buffer, if not full
+      ok = mTransmitBufferCount < mTransmitBufferSize ;
+      if (ok) {
+        mTransmitBuffer [mTransmitBufferWriteIndex] = inMessage ;
+        mTransmitBufferWriteIndex += 1 ;
+        if (mTransmitBufferWriteIndex == mTransmitBufferSize) {
+          mTransmitBufferWriteIndex = 0 ;
+        }
+        mTransmitBufferCount ++ ;
+        if (mTransmitBufferPeakCount < mTransmitBufferCount) {
+          mTransmitBufferPeakCount = mTransmitBufferCount ;
+        }
+      }
+    }
+  interrupts () ;
+  return ok ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————
+//   MESSAGE RECEPTION
+//——————————————————————————————————————————————————————————————————————————————
+
+bool ACAN2515::available (void) {
+  return mReceiveBufferCount > 0 ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————
+
+bool ACAN2515::receive (CANMessage & outMessage) {
+  const bool hasReceivedMessage = mReceiveBufferCount > 0 ;
+  if (hasReceivedMessage) {
+    outMessage = mReceiveBuffer [mReceiveBufferReadIndex] ;
+    __atomic_fetch_sub (& mReceiveBufferCount, 1, __ATOMIC_ACQ_REL) ; // Atomic mReceiveBufferCount --
+    mReceiveBufferReadIndex += 1 ;
+    if (mReceiveBufferReadIndex == mReceiveBufferSize) {
+      mReceiveBufferReadIndex = 0 ;
+    }
+  }
+//---
+  return hasReceivedMessage ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————
+//   POLLING
+//——————————————————————————————————————————————————————————————————————————————
+
+void ACAN2515::polling (void) {
+  noInterrupts () ;
+    isr () ;
+  interrupts () ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————
+//  INTERRUPTS ARE DISABLED WHEN THESE FUNCTIONS ARE EXECUTED
+//——————————————————————————————————————————————————————————————————————————————
+
+uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings) {
   uint32_t errorCode = 0 ; // Ok be default
-//----------------------------------- Configure ports
-  pinMode (mCS,  OUTPUT) ;
-  pinMode (mCLK, OUTPUT) ;
-  pinMode (mSI,  OUTPUT) ;
-  pinMode (mSO,  INPUT_PULLUP) ;
-  pinMode (mIRQ, INPUT_PULLUP) ;
-  digitalWrite (mCLK, LOW) ;  // CLK is low outside a command
-  digitalWrite (mCS,  HIGH) ; // CS is high outside a command
-  digitalWrite (mSI, LOW) ;
 //----------------------------------- Send software reset to MCP2515
   delayMicroseconds (1) ;
   digitalWrite (mCS,  LOW) ;
@@ -84,11 +161,11 @@ uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings) {
  //---
   delayMicroseconds (10) ;
 //----------------------------------- Check if MCP2515 is accessible
-  writeRegister (CNF1_REGISTER, 0x55) ;
-  bool ok = readRegister (CNF1_REGISTER) == 0x55 ;
+  write2515Register (CNF1_REGISTER, 0x55) ;
+  bool ok = read2515Register (CNF1_REGISTER) == 0x55 ;
   if (ok) {
-    writeRegister (CNF1_REGISTER, 0xAA) ;
-    ok = readRegister (CNF1_REGISTER) == 0xAA ;
+    write2515Register (CNF1_REGISTER, 0xAA) ;
+    ok = read2515Register (CNF1_REGISTER) == 0xAA ;
   }
   if (!ok) {
     errorCode = kNoMCP2515 ;
@@ -113,6 +190,7 @@ uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings) {
     mTransmitBufferWriteIndex = 0 ;
     mTransmitBufferCount = 0 ;
     mTransmitBufferPeakCount = 0 ;
+    mTXB0IsFree = true ;
   //----------------------------------- Set CNF3, CNF2, CNF1 and CANINTE registers
     digitalWrite (mCS,  LOW) ;
     sendByte (WRITE_COMMAND) ;
@@ -122,7 +200,7 @@ uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings) {
   //  bit 6 --> 0: No Wake-up Filter bit
   //  Bit 5-3: -
   //  Bit 2-0: PHSEG2 - 1
-    const byte cnf3 =
+    const uint8_t cnf3 =
       ((inSettings.mSignalOnCLKOUT_SOF_pin == ACAN2515SignalOnCLKOUT_SOF_pin::SOF) << 6) /* SOF */ |
       ((inSettings.mPhaseSegment2 - 1) << 0) /* PHSEG2 */
     ;
@@ -132,7 +210,7 @@ uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings) {
   //  bit 6: SAM
   //  Bit 5-3: PHSEG1 - 1
   //  Bit 2-0: PRSEG - 1
-    const byte cnf2 =
+    const uint8_t cnf2 =
       0x80 /* BLTMODE */ |
       (inSettings.mTripleSampling << 6) /* SAM */ |
       ((inSettings.mPhaseSegment1 - 1) << 3) /* PHSEG1 */ |
@@ -142,31 +220,31 @@ uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings) {
   //--- Register CNF1:
   //  Bit 7-6: SJW - 1
   //  Bit 5-0: BRP - 1
-    const byte cnf1 =
+    const uint8_t cnf1 =
       (inSettings.mSJW << 6) /* SJW */ |
       ((inSettings.mBitRatePrescaler - 1) << 0) /* BRP */
     ;
     sendByte (cnf1) ;
-  //--- Register CANINTE: activate receive interrupts
+  //--- Register CANINTE: activate interrupts
   //  Bit 7 --> 0: MERRE
   //  Bit 6 --> 0: WAKIE
   //  Bit 5 --> 0: ERRIE
   //  Bit 4 --> 0: TX2IE
   //  Bit 3 --> 0: TX1IE
-  //  Bit 2 --> 0: TX0IE
-  //  Bit 1 --> 1: RX1IE
-  //  Bit 0 --> 1: RX0IE
-    sendByte (0x03) ;
+  //  Bit 2 --> 1: TX0IE
+  //  Bit 1 --> 0: RX1IE
+  //  Bit 0 --> 0: RX0IE
+    sendByte (0x04) ;
     digitalWrite (mCS,  HIGH) ;
   //----------------------------------- Deactivate the RXnBF Pins (High Impedance State)
-    writeRegister (BFPCTRL_REGISTER, 0) ;
+    write2515Register (BFPCTRL_REGISTER, 0) ;
   //----------------------------------- Set TXnRTS as inputs
-    writeRegister (TXRTSCTRL_REGISTER, 0);
+    write2515Register (TXRTSCTRL_REGISTER, 0);
   //----------------------------------- Turn off filters => receive any message
-    writeRegister (RXB0CTRL_REGISTER, 0x60) ;
-    writeRegister (RXB1CTRL_REGISTER, 0x60) ;
+    write2515Register (RXB0CTRL_REGISTER, 0x60) ;
+    write2515Register (RXB1CTRL_REGISTER, 0x60) ;
   //----------------------------------- Reset device to requested mode
-    byte mode = inSettings.mOneShotModeEnabled ? (1 << 3) : 0 ; ;
+    uint8_t mode = inSettings.mOneShotModeEnabled ? (1 << 3) : 0 ; ;
     switch (inSettings.mSignalOnCLKOUT_SOF_pin) {
     case ACAN2515SignalOnCLKOUT_SOF_pin::CLOCK :
       mode = 0x04 | 0x00 ;
@@ -196,7 +274,7 @@ uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings) {
       mode |= 0x02 << 5 ;
       break ;
     }
-    writeRegister (CANCTRL_REGISTER, mode) ;
+    write2515Register (CANCTRL_REGISTER, mode) ;
   }
 //-----------------------------------
   return errorCode ;
@@ -204,145 +282,167 @@ uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings) {
 
 //——————————————————————————————————————————————————————————————————————————————
 
-void ACAN2515::handleMessages (void) {
+void ACAN2515::isr (void) {
+  uint8_t itStatus = read2515Register (CANSTAT_REGISTER) & 0x0E ;
+  while (itStatus != 0) {
+    switch (itStatus) {
+    case 0 : // No interrupt
+      break ;
+    case 1 << 1 : // Error interrupt
+      break ;
+    case 2 << 1 : // Wake-up interrupt
+      break ;
+    case 3 << 1 : // TXB0 interrupt
+      handleTXBInterrupt (0) ;
+      break ;
+    case 4 << 1 : // TXB1 interrupt
+      handleTXBInterrupt (1) ;
+      break ;
+    case 5 << 1 : // TXB2 interrupt
+      handleTXBInterrupt (2) ;
+      break ;
+    case 6 << 1 : // RXB0 interrupt
+      break ;
+    case 7 << 1 : // RXB1 interrupt
+      break ;
+    }
+    itStatus = read2515Register (CANSTAT_REGISTER) & 0x0E ;
+  }
 //--- Receive message ?
-  const byte rxStatus = readRxStatus () ; // Bit 0: message in RXB0, bit 1: message in RXB1
-  const bool received = (rxStatus & 0xC0) != 0 ;
-  if (received) { // Message in RXB0 and / or RXB1
-    CANMessage message ;
-    const bool accessRXB0 = (rxStatus & 0x40) != 0 ;
-    message.rtr = (rxStatus & 0x10) != 0 ;
-    message.ext = (rxStatus & 0x08) != 0 ;
-    delayMicroseconds (1) ;
-    digitalWrite (mCS,  LOW) ;
-    sendByte (accessRXB0 ? READ_FROM_RXB0SIDH_COMMAND : READ_FROM_RXB1SIDH_COMMAND) ;
-  //--- SIDH
-    message.id = readByte () ; // Read SIDH
-  //--- SIDL
-    const uint8_t sidl = readByte () ; // Read SIDL
-    message.id <<= 3 ;
-    message.id |= sidl >> 5 ;
-    message.ext = (sidl & 0x08) != 0 ;
-  //--- EID8
-    const uint8_t eid8 = readByte () ; // Read EID8
-    if (message.ext) {
-      message.id <<= 8 ;
-      message.id |= eid8 ;
-    }
-  //--- EID0
-    const uint8_t eid0 = readByte () ; // Read EID0
-    if (message.ext) {
-      message.id <<= 8 ;
-      message.id |= eid0 ;
-    }
-  //--- DLC
-    const uint8_t dlc = readByte () ; // Read DLC
-    message.len = dlc & 0x0F ;
-  //--- Read data
-    for (int i=0 ; i<message.len ; i++) {
-      message.data [i] = readByte () ;
-    }
-  //---
-    delayMicroseconds (1) ;
-    digitalWrite (mCS,  HIGH) ;
-  //--- Free receive buffer command
-    bitModifyRegister (CANINTF_REGISTER, accessRXB0 ? 0x01 : 0x02, 0) ;
-  //--- Enter received message in receive buffer (if not full)
-    if (mReceiveBufferCount == mReceiveBufferSize) {
-      mReceiveBufferPeakCount = mReceiveBufferSize + 1 ; // Receive buffer overflow
-    }else{
-      mReceiveBuffer [mReceiveBufferWriteIndex] = message ;
-      mReceiveBufferWriteIndex += 1 ;
-      if (mReceiveBufferWriteIndex == mReceiveBufferSize) {
-        mReceiveBufferWriteIndex = 0 ;
-      }
-      mReceiveBufferCount += 1 ;
-      if (mReceiveBufferPeakCount < mReceiveBufferCount) {
-        mReceiveBufferPeakCount = mReceiveBufferCount ;
-      }
-    }
-  }
+//   const uint8_t rxStatus = read2515RxStatus () ; // Bit 0: message in RXB0, bit 1: message in RXB1
+//   const bool received = (rxStatus & 0xC0) != 0 ;
+//   if (received) { // Message in RXB0 and / or RXB1
+//     CANMessage message ;
+//     const bool accessRXB0 = (rxStatus & 0x40) != 0 ;
+//     message.rtr = (rxStatus & 0x10) != 0 ;
+//     message.ext = (rxStatus & 0x08) != 0 ;
+//     delayMicroseconds (1) ;
+//     digitalWrite (mCS,  LOW) ;
+//     sendByte (accessRXB0 ? READ_FROM_RXB0SIDH_COMMAND : READ_FROM_RXB1SIDH_COMMAND) ;
+//   //--- SIDH
+//     message.id = readByte () ; // Read SIDH
+//   //--- SIDL
+//     const uint8_t sidl = readByte () ; // Read SIDL
+//     message.id <<= 3 ;
+//     message.id |= sidl >> 5 ;
+//     message.ext = (sidl & 0x08) != 0 ;
+//   //--- EID8
+//     const uint8_t eid8 = readByte () ; // Read EID8
+//     if (message.ext) {
+//       message.id <<= 8 ;
+//       message.id |= eid8 ;
+//     }
+//   //--- EID0
+//     const uint8_t eid0 = readByte () ; // Read EID0
+//     if (message.ext) {
+//       message.id <<= 8 ;
+//       message.id |= eid0 ;
+//     }
+//   //--- DLC
+//     const uint8_t dlc = readByte () ; // Read DLC
+//     message.len = dlc & 0x0F ;
+//   //--- Read data
+//     for (int i=0 ; i<message.len ; i++) {
+//       message.data [i] = readByte () ;
+//     }
+//   //---
+//     delayMicroseconds (1) ;
+//     digitalWrite (mCS,  HIGH) ;
+//   //--- Free receive buffer command
+//     bitModify2515Register (CANINTF_REGISTER, accessRXB0 ? 0x01 : 0x02, 0) ;
+//   //--- Enter received message in receive buffer (if not full)
+//     if (mReceiveBufferCount == mReceiveBufferSize) {
+//       mReceiveBufferPeakCount = mReceiveBufferSize + 1 ; // Receive buffer overflow
+//     }else{
+//       mReceiveBuffer [mReceiveBufferWriteIndex] = message ;
+//       mReceiveBufferWriteIndex += 1 ;
+//       if (mReceiveBufferWriteIndex == mReceiveBufferSize) {
+//         mReceiveBufferWriteIndex = 0 ;
+//       }
+//       mReceiveBufferCount += 1 ;
+//       if (mReceiveBufferPeakCount < mReceiveBufferCount) {
+//         mReceiveBufferPeakCount = mReceiveBufferCount ;
+//       }
+//     }
+//   }
 //--- Send message ?
+//   if (mTransmitBufferCount > 0) {
+//     const bool sent = internalSendMessage (mTransmitBuffer [mTransmitBufferReadIndex]) ;
+//     if (sent) {
+//       mTransmitBufferCount -= 1 ;
+//       mTransmitBufferReadIndex += 1 ;
+//       if (mTransmitBufferReadIndex == mTransmitBufferSize) {
+//         mTransmitBufferReadIndex = 0 ;
+//       }
+//     }
+//   }
+}
+
+//——————————————————————————————————————————————————————————————————————————————
+// This function is called by ISR when a MCP2515 transmit buffer becomes empty
+
+void ACAN2515::handleTXBInterrupt (const uint8_t inTXB) { // inTXB value is 0, 1 or 2
+//--- Acknowledge interrupt
+  bitModify2515Register (CANINTF_REGISTER, 0x04, 0) ;
+//--- Send an other message ?
   if (mTransmitBufferCount > 0) {
-    const bool sent = internalSendMessage (mTransmitBuffer [mTransmitBufferReadIndex]) ;
-    if (sent) {
-      mTransmitBufferCount -= 1 ;
-      mTransmitBufferReadIndex += 1 ;
-      if (mTransmitBufferReadIndex == mTransmitBufferSize) {
-        mTransmitBufferReadIndex = 0 ;
-      }
+    internalSendMessage (mTransmitBuffer [mTransmitBufferReadIndex], 0) ;
+    mTransmitBufferCount -= 1 ;
+    mTransmitBufferReadIndex += 1 ;
+    if (mTransmitBufferReadIndex == mTransmitBufferSize) {
+      mTransmitBufferReadIndex = 0 ;
     }
-  }
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-
-bool ACAN2515::available (void) {
-  return mReceiveBufferCount > 0 ;
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-
-bool ACAN2515::getReceivedMessage (CANMessage & outMessage) {
-  const bool hasReceivedMessage = mReceiveBufferCount > 0 ;
-  if (hasReceivedMessage) {
-    outMessage = mReceiveBuffer [mReceiveBufferReadIndex] ;
-    mReceiveBufferCount -= 1 ;
-    mReceiveBufferReadIndex += 1 ;
-    if (mReceiveBufferReadIndex == mReceiveBufferSize) {
-      mReceiveBufferReadIndex = 0 ;
-    }
-  }
-//---
-  return hasReceivedMessage ;
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-
-bool ACAN2515::internalSendMessage (const CANMessage & inFrame) {
-//--- Get status (bit 2, 4 and 6 are related to send buffer 0, 1 and 2)
-  const byte status = readStatus () ;
-//--- Find a free send buffer
-  bool ok = true ;
-  byte loadTxBuffer = LOAD_TX_BUFFER_COMMAND ;
-  byte sendCommand = SEND_COMMAND ;
-  if ((status & 0x04) == 0) { // Send buffer 0 is free
-    sendCommand |= 0x01 ;
-  }else if ((status & 0x10) == 0) { // Send buffer 1 is free
-    loadTxBuffer = LOAD_TX_BUFFER_COMMAND | 0x02 ;
-    sendCommand |= 0x02 ;
-  }else if ((status & 0x40) == 0) { // Send buffer 2 is free
-    loadTxBuffer = LOAD_TX_BUFFER_COMMAND | 0x04 ;
-    sendCommand |= 0x04 ;
   }else{
-    ok = false ; // No free buffer
+    mTXB0IsFree = true ;
   }
-//--- Send message if a free buffer has been found
-  if (ok) {
+}
+
+//——————————————————————————————————————————————————————————————————————————————
+
+void ACAN2515::internalSendMessage (const CANMessage & inFrame, const uint8_t inTXB) {
+//--- Get status (bit 2, 4 and 6 are related to send buffer 0, 1 and 2)
+//   const uint8_t status = read2515Status () ;
+// //--- Find a free send buffer
+//   bool ok = true ;
+  const uint8_t loadTxBuffer = LOAD_TX_BUFFER_COMMAND ;
+  const uint8_t sendCommand = SEND_COMMAND | 0x01 ;
+//   if ((status & 0x04) == 0) { // Send buffer 0 is free
+//     sendCommand |= 0x01 ;
+// //   }else if ((status & 0x10) == 0) { // Send buffer 1 is free
+// //     loadTxBuffer = LOAD_TX_BUFFER_COMMAND | 0x02 ;
+// //     sendCommand |= 0x02 ;
+// //   }else if ((status & 0x40) == 0) { // Send buffer 2 is free
+// //     loadTxBuffer = LOAD_TX_BUFFER_COMMAND | 0x04 ;
+// //     sendCommand |= 0x04 ;
+//   }else{
+//     ok = false ; // No free buffer
+//   }
+// //--- Send message if a free buffer has been found
+//   if (ok) {
     delayMicroseconds (1) ;
     digitalWrite (mCS,  LOW) ;
     sendByte (loadTxBuffer) ;
     if (inFrame.ext) { // Extended frame
       uint32_t v = inFrame.id >> 21 ;
-      sendByte ((byte) v) ; // ID28 ... ID21 --> SIDH
+      sendByte ((uint8_t) v) ; // ID28 ... ID21 --> SIDH
       v  = (inFrame.id >> 13) & 0xE0 ; // ID20, ID19, ID18 in bits 7, 6, 5
       v |= (inFrame.id >> 16) & 0x03 ; // ID17, ID16 in bits 1, 0
       v |= 0x08 ; // Extended bit
-      sendByte ((byte) v) ; // ID20, ID19, ID18, -, 1, -, ID17, ID16 --> SIDL
+      sendByte ((uint8_t) v) ; // ID20, ID19, ID18, -, 1, -, ID17, ID16 --> SIDL
       v  = (inFrame.id >> 8) & 0xFF ; // ID15, ..., ID8
-      sendByte ((byte) v) ; // ID15, ID14, ID13, ID12, ID11, ID10, ID9, ID8 --> EID8
+      sendByte ((uint8_t) v) ; // ID15, ID14, ID13, ID12, ID11, ID10, ID9, ID8 --> EID8
       v  = inFrame.id & 0xFF ; // ID7, ..., ID0
-      sendByte ((byte) v) ; // ID7, ID6, ID5, ID4, ID3, ID2, ID1, ID0 --> EID0
+      sendByte ((uint8_t) v) ; // ID7, ID6, ID5, ID4, ID3, ID2, ID1, ID0 --> EID0
     }else{ // Standard frame
       uint32_t v = inFrame.id >> 3 ;
-      sendByte ((byte) v) ; // ID10 ... ID3 --> SIDH
+      sendByte ((uint8_t) v) ; // ID10 ... ID3 --> SIDH
       v  = (inFrame.id << 5) & 0xE0 ; // ID2, ID1, ID0 in bits 7, 6, 5
-      sendByte ((byte) v) ; // ID2, ID1, ID0, -, 0, -, 0, 0 --> SIDL
+      sendByte ((uint8_t) v) ; // ID2, ID1, ID0, -, 0, -, 0, 0 --> SIDL
       sendByte (0x00) ; // any value --> EID8
       sendByte (0x00) ; // any value --> EID0
     }
   //--- DLC
-    byte v = inFrame.len & 0x0F ;
+    uint8_t v = inFrame.len & 0x0F ;
     if (inFrame.rtr) {
       v |= 0x40 ;
     }
@@ -361,33 +461,81 @@ bool ACAN2515::internalSendMessage (const CANMessage & inFrame) {
     sendByte (sendCommand) ;
     delayMicroseconds (1) ;
     digitalWrite (mCS,  HIGH) ;
-  }
+//  }
 //--- Return
-  return ok ;
+//  return ok ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————
+//  INTERNAL SPI FUNCTIONS (INTERRUPTS ARE DISABLED WHEN THEY ARE EXECUTED)
+//——————————————————————————————————————————————————————————————————————————————
+
+void ACAN2515::write2515Register (const uint8_t inRegister, const uint8_t inValue) {
+  delayMicroseconds (1) ;
+  digitalWrite (mCS,  LOW) ;
+  sendByte (WRITE_COMMAND) ;
+  sendByte (inRegister) ;
+  sendByte (inValue) ;
+  delayMicroseconds (1) ;
+  digitalWrite (mCS,  HIGH) ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————
 
-bool ACAN2515::tryToSend (const CANMessage & inMessage) {
-  const bool ok = mTransmitBufferCount < mTransmitBufferSize ;
-  if (ok) {
-    mTransmitBuffer [mTransmitBufferWriteIndex] = inMessage ;
-    mTransmitBufferWriteIndex += 1 ;
-    if (mTransmitBufferWriteIndex == mTransmitBufferSize) {
-      mTransmitBufferWriteIndex = 0 ;
-    }
-    mTransmitBufferCount += 1 ;
-    if (mTransmitBufferPeakCount < mTransmitBufferCount) {
-      mTransmitBufferPeakCount = mTransmitBufferCount ;
-    }
-  }
-  return ok ;
+uint8_t ACAN2515::read2515Register (const uint8_t inRegister) {
+  delayMicroseconds (1) ;
+  digitalWrite (mCS,  LOW) ;
+  sendByte (READ_COMMAND) ;
+  sendByte (inRegister) ;
+  const uint8_t readValue = readByte () ;
+  delayMicroseconds (1) ;
+  digitalWrite (mCS,  HIGH) ;
+  return readValue ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————
 
-void ACAN2515::sendByte (const byte inByte) {
-  byte v = inByte ;
+uint8_t ACAN2515::read2515Status (void) {
+  delayMicroseconds (1) ;
+  digitalWrite (mCS,  LOW) ;
+  sendByte (READ_STATUS_COMMAND) ;
+  const uint8_t readValue = readByte () ;
+  delayMicroseconds (1) ;
+  digitalWrite (mCS,  HIGH) ;
+  return readValue ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————
+
+uint8_t ACAN2515::read2515RxStatus (void) {
+  delayMicroseconds (1) ;
+  digitalWrite (mCS,  LOW) ;
+  sendByte (RX_STATUS_COMMAND) ;
+  const uint8_t readValue = readByte () ;
+  delayMicroseconds (1) ;
+  digitalWrite (mCS,  HIGH) ;
+  return readValue ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————
+
+void ACAN2515::bitModify2515Register (const uint8_t inRegister,
+                                      const uint8_t inMask,
+                                      const uint8_t inData) {
+  delayMicroseconds (1) ;
+  digitalWrite (mCS,  LOW) ;
+  sendByte (BIT_MODIFY_COMMAND) ;
+  sendByte (inRegister) ;
+  sendByte (inMask) ;
+  sendByte (inData) ;
+  delayMicroseconds (1) ;
+  digitalWrite (mCS,  HIGH) ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————
+
+void ACAN2515::sendByte (const uint8_t inByte) {
+  uint8_t v = inByte ;
   for (int i=0 ; i<8 ; i++) {
     delayMicroseconds (1) ;
     digitalWrite (mSI, (v & 0x80) != 0) ;
@@ -401,20 +549,8 @@ void ACAN2515::sendByte (const byte inByte) {
 
 //——————————————————————————————————————————————————————————————————————————————
 
-void ACAN2515::writeRegister (const byte inRegister, const byte inValue) {
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  LOW) ;
-  sendByte (WRITE_COMMAND) ;
-  sendByte (inRegister) ;
-  sendByte (inValue) ;
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  HIGH) ;
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-
-byte ACAN2515::readByte (void) {
-  byte readValue = 0 ;
+uint8_t ACAN2515::readByte (void) {
+  uint8_t readValue = 0 ;
   for (int i=0 ; i<8 ; i++) {
     delayMicroseconds (1) ;
     readValue <<= 1 ;
@@ -425,58 +561,6 @@ byte ACAN2515::readByte (void) {
     digitalWrite (mCLK, LOW) ;
   }
   return readValue ;
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-
-byte ACAN2515::readRegister (const byte inRegister) {
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  LOW) ;
-  sendByte (READ_COMMAND) ;
-  sendByte (inRegister) ;
-  const byte readValue = readByte () ;
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  HIGH) ;
-  return readValue ;
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-
-byte ACAN2515::readStatus (void) {
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  LOW) ;
-  sendByte (READ_STATUS_COMMAND) ;
-  const byte readValue = readByte () ;
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  HIGH) ;
-  return readValue ;
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-
-byte ACAN2515::readRxStatus (void) {
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  LOW) ;
-  sendByte (RX_STATUS_COMMAND) ;
-  const byte readValue = readByte () ;
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  HIGH) ;
-  return readValue ;
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-
-void ACAN2515::bitModifyRegister (const uint8_t inRegister,
-                                  const uint8_t inMask,
-                                  const uint8_t inData) {
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  LOW) ;
-  sendByte (BIT_MODIFY_COMMAND) ;
-  sendByte (inRegister) ;
-  sendByte (inMask) ;
-  sendByte (inData) ;
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  HIGH) ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————

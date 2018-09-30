@@ -1,28 +1,32 @@
 //——————————————————————————————————————————————————————————————————————————————
 //  ACAN2515 / ACAN Demo 
-//  ACAN2515 uses software SPI and an external interrupt pin
+//  ACAN2515 uses hardware SPI and an external interrupt pin
 //  This sketch runs only on a Teensy 3.x
 //  It uses the Teensy 3.x builtin CAN0 interface for testing intensive
 //  communication with a MCP2515 CAN controller.
 //  The builtin CAN0 interface and the MCP2515 controller should be connected
 //  throught transceivers.
-//  Note that the Tx and Rx alternate pins are used for the Tennsy builtin CAN0.
+//  Note that the Tx and Rx alternate pins are used for the Teensy builtin CAN0.
 //——————————————————————————————————————————————————————————————————————————————
 
 #include <ACAN.h>      // For the Teensy 3.x builtin CAN
 #include <ACAN2515.h>  // For the external MCP2515
+#include <SPI.h>
 
 //——————————————————————————————————————————————————————————————————————————————
-// Select CAN baud rate: soft spi is not very efficient, baud rate
-// of 125 kb/s or more may fail.
+// Select CAN baud rate.
 // Select a baud rate common to the builtin CAN interface and the MCP2515
 
-static const uint32_t CAN_BIT_RATE = 62500 ;
+static const uint32_t CAN_BIT_RATE = 1000 * 1000 ;
 
 //——————————————————————————————————————————————————————————————————————————————
 //  MCP2515 connections: adapt theses settings to your design
-//  As Soft SPI is used (SPI is emulated with digital pins), you can use any
-//  digital pins.
+//  As hardware SPI is used, you should select pins that support SPI functions.
+//  This sketch is designed for a Teensy 3.5, using SPI0 (named SPI)
+//  But standard Teensy 3.5 SPI0 pins are not used
+//    CLK input of MCP2515 is pin #27
+//    SI input of MCP2515 is pin #28
+//    SO output of MCP2515 is pin #39
 //  User code should configure MCP2515_IRQ pin as external interrupt
 //——————————————————————————————————————————————————————————————————————————————
 
@@ -34,7 +38,7 @@ static const byte MCP2515_IRQ = 37 ; // INT output of MCP2515
 
 //——————————————————————————————————————————————————————————————————————————————
 
-ACAN2515 can (MCP2515_CS, MCP2515_CLK, MCP2515_SI, MCP2515_SO) ;
+ACAN2515 can (MCP2515_CS, SPI) ;
 
 //——————————————————————————————————————————————————————————————————————————————
 
@@ -61,6 +65,10 @@ void setup () {
     delay (50) ;
     digitalWrite (LED_BUILTIN, !digitalRead (LED_BUILTIN)) ;
   }
+//--- Define alternate pins for SPI0 (see https://www.pjrc.com/teensy/td_libs_SPI.html)
+  SPI.setMOSI (MCP2515_SI) ;
+  SPI.setMISO (MCP2515_SO) ;
+  SPI.setSCK (MCP2515_CLK) ;
 //--- Configure MCP2515_IRQ as external input
   pinMode (MCP2515_IRQ, INPUT_PULLUP) ;
   attachInterrupt (digitalPinToInterrupt (MCP2515_IRQ), canISR, LOW) ;
@@ -80,6 +88,9 @@ void setup () {
   const uint32_t errorCode = ACAN::can0.begin (settings) ;
   if (errorCode == 0) {
     Serial.println ("ACAN configuration: ok") ;
+    Serial.print ("Actual bit rate: ") ;
+    Serial.print (settings.actualBitRate ()) ;
+    Serial.println (" bit/s") ;
   }else{
     Serial.print ("ACAN configuration error 0x") ;
     Serial.println (errorCode, HEX) ;

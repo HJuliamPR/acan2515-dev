@@ -18,8 +18,7 @@
 class ACAN2515 {
 //--- Constructor: using hardware SPI
   public: ACAN2515 (const uint8_t inCS,  // CS input of MCP2515
-                    SPIClass & inSPI, // Hardware SPI object
-                    const uint32_t inSPISpeed) ;  // in byte / s
+                    SPIClass & inSPI) ; // Hardware SPI object
 
 //--- Constructor: using software SPI
   public: ACAN2515 (const uint8_t inCS,  // CS input of MCP2515

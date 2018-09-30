@@ -25,14 +25,14 @@ class ACANSettings2515 {
                                      const uint32_t inWhishedBitRate,
                                      const uint32_t inTolerancePPM = 1000) ;
 
-//--- CAN bit timing (default values correspond to 250 kb/s)
+//--- CAN bit timing
   public: const uint32_t mQuartzFrequency ;
-  public: uint32_t mWhishedBitRate = 250 * 1000 ; // In kb/s
-  public: uint16_t mBitRatePrescaler = 4 ; // 1...256
+  public: uint32_t mWhishedBitRate = mQuartzFrequency / 64 ; // In kb/s
   public: uint8_t mPropagationSegment = 5 ; // 1...8
   public: uint8_t mPhaseSegment1 = 5 ; // 1...8
   public: uint8_t mPhaseSegment2 = 5 ;  // 2...8
   public: uint8_t mSJW = 4 ; // 1...4
+  public: uint16_t mBitRatePrescaler = 32 / (1 + mPropagationSegment + mPhaseSegment1 + mPhaseSegment2) ; // 1...64
   public: bool mTripleSampling = false ; // true --> triple sampling, false --> single sampling
   public: bool mBitSettingOk = true ; // The above configuration is correct
 

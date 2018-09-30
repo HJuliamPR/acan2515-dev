@@ -43,14 +43,13 @@ static const uint8_t RXB1CTRL_REGISTER  = 0x70 ;
 //——————————————————————————————————————————————————————————————————————————————
 
 ACAN2515::ACAN2515 (const uint8_t inCS,  // CS input of MCP2515
-                    SPIClass & inSPI, // Hardware SPI object
-                    const uint32_t inSPISpeed) :  // in byte / s
+                    SPIClass & inSPI) : // Hardware SPI object
 mCS (inCS),
 mSPI (NULL),
 mReceiveBuffer (),
 mTransmitBuffer (),
 mTXBIsFree () {
-  mSPI = new ACAN2515HardSPI (inSPI, inSPISpeed) ;
+  mSPI = new ACAN2515HardSPI (inSPI, 10 * 1000 * 1000) ; // 10 MHz
 }
 
 //——————————————————————————————————————————————————————————————————————————————
@@ -568,7 +567,6 @@ void ACAN2515HardSPI::configure (void) {
 //——————————————————————————————————————————————————————————————————————————————
 
 void ACAN2515HardSPI::beginTransaction (void) {
-//  mHardSPI->beginTransaction (SPISettings (1000000, MSBFIRST, SPI_MODE0)) ;
   mHardSPI->beginTransaction (mSPISettings) ;
 }
 

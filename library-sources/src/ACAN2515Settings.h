@@ -80,7 +80,7 @@ class ACANSettings2515 {
   public: static const uint32_t kPropagationSegmentIsGreaterThan8 = 1 <<  3 ;
   public: static const uint32_t kPhaseSegment1IsZero              = 1 <<  4 ;
   public: static const uint32_t kPhaseSegment1IsGreaterThan8      = 1 <<  5 ;
-  public: static const uint32_t kPhaseSegment2IsZero              = 1 <<  6 ;
+  public: static const uint32_t kPhaseSegment2IsLowerThan2        = 1 <<  6 ;
   public: static const uint32_t kPhaseSegment2IsGreaterThan8      = 1 <<  7 ;
   public: static const uint32_t kSJWIsZero                        = 1 <<  8 ;
   public: static const uint32_t kSJWIsGreaterThan4                = 1 <<  9 ;

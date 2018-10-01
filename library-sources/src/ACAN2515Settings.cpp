@@ -122,8 +122,8 @@ uint32_t ACANSettings2515::CANBitSettingConsistency (void) const {
   }else if (mPhaseSegment1 > 8) {
     errorCode |= kPhaseSegment1IsGreaterThan8 ;
   }
-  if (mPhaseSegment2 == 0) {
-    errorCode |= kPhaseSegment2IsZero ;
+  if (mPhaseSegment2 < 2) {
+    errorCode |= kPhaseSegment2IsLowerThan2 ;
   }else if (mPhaseSegment2 > 8) {
     errorCode |= kPhaseSegment2IsGreaterThan8 ;
   }

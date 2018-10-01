@@ -12,7 +12,7 @@
 //——————————————————————————————————————————————————————————————————————————————
 
 static const byte MCP2515_CS  = 20 ; // CS input of MCP2515 
-static const byte MCP2515_CLK = 27 ; // CLK input of MCP2515 
+static const byte MCP2515_SCK = 27 ; // SCK input of MCP2515 
 static const byte MCP2515_SI  = 28 ; // SI input of MCP2515  
 static const byte MCP2515_SO  = 39 ; // SO output of MCP2515 
 static const byte MCP2515_IRQ = 37 ; // INT output of MCP2515
@@ -25,7 +25,7 @@ static const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 
 //——————————————————————————————————————————————————————————————————————————————
 
-ACAN2515 can (MCP2515_CS, MCP2515_CLK, MCP2515_SI, MCP2515_SO) ;
+ACAN2515 can (MCP2515_CS, MCP2515_SCK, MCP2515_SI, MCP2515_SO) ;
 
 //——————————————————————————————————————————————————————————————————————————————
 

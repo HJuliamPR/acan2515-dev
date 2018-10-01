@@ -93,7 +93,7 @@ uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings) {
 
 bool ACAN2515::tryToSend (const CANMessage & inMessage) {
 //--- Find send buffer index
-  uint8_t idx = inMessage.idx ;
+  uint8_t idx = inMessage.idx & 0x3F ; // Only retain bits 5:0 for selecting transmit buffer
   if (idx > 2) {
     idx = 0 ;
   }

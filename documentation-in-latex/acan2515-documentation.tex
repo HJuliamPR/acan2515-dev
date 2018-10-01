@@ -343,6 +343,7 @@ The \texttt{ACAN2515} library is a MCP2515 CAN ("Controller Area Network") Contr
   \item default configuration sends and receives any frame -- no default filter to provide;
   \item efficient built-in CAN bit settings computation from user bit rate;
   \item user can fully define its own CAN bit setting values;
+  \item supports both software SPI and hardware SPI;
 %  \item reception filters are easily defined -- up to 14 primary filters and 18 secondary filters;
 %  \item reception filters accept call back functions;
 %  \item driver transmit buffer size is customisable;
@@ -373,7 +374,7 @@ The \refFigure{}{figureStructureStationCAN} illustrates message flow for sending
     \draw (2.5, 10.5) node[above] {\texttt{tryToSend}};
   %--- MCP2515 controller
     \draw[very thick, fill=lightgray!25] (0.5, 0.5) rectangle ++ (14.5, 6);
-    \draw (5.25, 3.5) node[below] {\bf\emph{MCP2515 CAN Controller}};
+    \draw (7.5, 3.5) node {\bf\emph{MCP2515}};
   % Flèches
     \draw[<-, very thick] (2.5, 6) -- ++ (0, 1.5) ;
     \draw[<-, very thick] (6.0, 6) -- ++ (0, 1.5) ;
@@ -434,21 +435,21 @@ The \refFigure{}{figureStructureStationCAN} illustrates message flow for sending
 
 
 
-\begin{table}[!ht]
-  \small
-  \onehalfspacing
-  \centering
-  \begin{tabular}{lllll}
-     & & \textbf{Sending} & \textbf{Sending} \\
-    \textbf{settings.mConfiguration}& \textbf{Reception} & \textbf{remote frames} & \textbf{data frames} \\
-    \texttt{k8\_0\_Filters} & 8 (\texttt{MB0} ... \texttt{MB7}) & 7 (\texttt{MB8} ... \texttt{MB14}) & 1 (\texttt{MB15})\\
-    \texttt{k10\_6\_Filters} & 10  (\texttt{MB0} ... \texttt{MB9}) & 5  (\texttt{MB10} ... \texttt{MB14})& 1 (\texttt{MB15})\\
-    \texttt{k12\_12\_Filters} & 12  (\texttt{MB0} ... \texttt{MB11}) & 3  (\texttt{MB12} ... \texttt{MB14}) & 1 (\texttt{MB15})\\
-    \texttt{k14\_18\_Filters} & 14  (\texttt{MB0} ... \texttt{MB13}) & 1 (\texttt{MB14}) & 1 (\texttt{MB15})\\
-  \end{tabular}
-  \caption{FlexCAN MBs assignments, following \texttt{settings.mConfiguration} value}
-  \labelTableau{MBassignement}
-\end{table}
+%\begin{table}[!ht]
+%  \small
+%  \onehalfspacing
+%  \centering
+%  \begin{tabular}{lllll}
+%     & & \textbf{Sending} & \textbf{Sending} \\
+%    \textbf{settings.mConfiguration}& \textbf{Reception} & \textbf{remote frames} & \textbf{data frames} \\
+%    \texttt{k8\_0\_Filters} & 8 (\texttt{MB0} ... \texttt{MB7}) & 7 (\texttt{MB8} ... \texttt{MB14}) & 1 (\texttt{MB15})\\
+%    \texttt{k10\_6\_Filters} & 10  (\texttt{MB0} ... \texttt{MB9}) & 5  (\texttt{MB10} ... \texttt{MB14})& 1 (\texttt{MB15})\\
+%    \texttt{k12\_12\_Filters} & 12  (\texttt{MB0} ... \texttt{MB11}) & 3  (\texttt{MB12} ... \texttt{MB14}) & 1 (\texttt{MB15})\\
+%    \texttt{k14\_18\_Filters} & 14  (\texttt{MB0} ... \texttt{MB13}) & 1 (\texttt{MB14}) & 1 (\texttt{MB15})\\
+%  \end{tabular}
+%  \caption{FlexCAN MBs assignments, following \texttt{settings.mConfiguration} value}
+%  \labelTableau{MBassignement}
+%\end{table}
 
 
 
@@ -457,7 +458,7 @@ The \refFigure{}{figureStructureStationCAN} illustrates message flow for sending
 
 
 
-{\bf Receiving messages.} The FlexCAN \emph{CAN Protocol Engine} transmits all correct frames to the \emph{reception filters}. By default, they are configured as pass-all, see \refSectionPage{primaryFilters} and  \refSectionPage{secondaryFilters} for configuring them. Messages that pass the filters are stored in the \emph{Reception FIFO}. Its depth is not configurable -- it is always 2-message. The message interrupt service routine transfers the messages from \emph{Reception FIFO} to the \emph{Driver Receive Buffer}. The size of the \emph{Driver Receive Buffer} is 32 by default -- see \refSubsectionPage{driverReceiveBufferSize} for changing the default value. Three user methods are available:
+{\bf Receiving messages.} The MCP2515 \emph{CAN Protocol Engine} transmits all correct frames to the \emph{reception filters}. By default, they are configured as pass-all, see \refSectionPage{primaryFilters} and  \refSectionPage{secondaryFilters} for configuring them. Messages that pass the filters are stored in the \emph{Reception FIFO}. Its depth is not configurable -- it is always 2-message. The message interrupt service routine transfers the messages from \emph{Reception FIFO} to the \emph{Driver Receive Buffer}. The size of the \emph{Driver Receive Buffer} is 32 by default -- see \refSubsectionPage{driverReceiveBufferSize} for changing the default value. Three user methods are available:
 \begin{itemize}
   \item the \texttt{available} method returns \texttt{false} if the \emph{Driver Receive Buffer} is empty, and \texttt{true} otherwise;
   \item the \texttt{receive} method retrieves messages from the \emph{Driver Receive Buffer} -- see \refSectionPage{UsingReceiveMethod}, \refSubsectionPage{usingIDXvalue} and \refSubsectionPage{usingIDXvalueWithSecondaryFilter};
@@ -480,14 +481,14 @@ Note it runs without any external hardware, it uses the \emph{loop back} mode an
 void setup () {
   Serial.begin (9600) ;
   Serial.println ("Hello") ;
-  ACANSettings settings (125 * 1000) ; // 125 kbit/s
+  ACAN2515Settings settings (125 * 1000) ; // 125 kbit/s
   settings.mLoopBackMode = true ;
   settings.mSelfReceptionMode = true ;
-  const uint32_t errorCode = ACAN::can0.begin (settings) ;
+  const uint32_t errorCode = can.begin (settings) ;
   if (0 == errorCode) {
-    Serial.println ("ACAN::can0 ok") ;
+    Serial.println ("can ok") ;
   }else{
-    Serial.print ("Error ACAN::can0: 0x") ;
+    Serial.print ("Error can: 0x") ;
     Serial.println (errorCode, HEX) ;
   }
 }
@@ -500,7 +501,7 @@ void loop () {
   CANMessage message ;
   if (gSendDate < millis ()) {
     message.id = 0x542 ;
-    const bool ok = ACAN::can0.tryToSend (message) ;
+    const bool ok = can.tryToSend (message) ;
     if (ok) {
       gSendDate += 2000 ;
       gSentCount += 1 ;
@@ -508,7 +509,7 @@ void loop () {
       Serial.println (gSentCount) ;
     }
   }
-  if (ACAN::can0.receive (message)) {
+  if (can.receive (message)) {
     gReceivedCount += 1 ;
     Serial.print ("Received: ") ;
     Serial.println (gReceivedCount) ;
@@ -518,13 +519,13 @@ void loop () {
 
 {\bf Line 1.} This line includes the \texttt{ACAN} library.
 
-{\bf Line 6.} Configuration is a four-step operation. This line is the first step. It instanciates the \texttt{settings} object of the \texttt{ACANSettings} class. The constructor has one parameter: the wished CAN bit rate. It returns a \texttt{settings} object fully initialized with CAN bit settings for the wished bit rate, and default values for other configuration properties.
+{\bf Line 6.} Configuration is a four-step operation. This line is the first step. It instanciates the \texttt{settings} object of the \texttt{ACAN2515Settings} class. The constructor has one parameter: the wished CAN bit rate. It returns a \texttt{settings} object fully initialized with CAN bit settings for the wished bit rate, and default values for other configuration properties.
 
-{\bf Lines 7 and 8.} This is the second step. You can override the values of the properties of \texttt{settings} object. Here, the \texttt{mLoopBackMode} and \texttt{mSelfReceptionMode} properties are set to \texttt{true} -- they are \texttt{false} by default. Theses two properties fully enables \emph{loop back}, that is you can run this demo sketch even it you have no connection to a physical CAN network. The \refSubsectionPage{propertiesACanSettings} lists all properties you can override.
+{\bf Lines 7 and 8.} This is the second step. You can override the values of the properties of \texttt{settings} object. Here, the \texttt{mLoopBackMode} and \texttt{mSelfReceptionMode} properties are set to \texttt{true} -- they are \texttt{false} by default. Theses two properties fully enables \emph{loop back}, that is you can run this demo sketch even it you have no connection to a physical CAN network. The \refSubsectionPage{propertiesACAN2515Settings} lists all properties you can override.
 
-{\bf Line 9.} This is the third step, configuration of the \texttt{ACAN::can0} driver with \texttt{settings} values. You cannot change the \texttt{ACAN::can0} name -- see \refSectionPage{driverInstances}. The driver is configured for being able to send any (standard / extended, data / remote) frame, and to receive all (standard / extended, data / remote) frames. If you want to define reception filters, see \refSectionPage{primaryFilters} and  \refSectionPage{secondaryFilters}.
+{\bf Line 9.} This is the third step, configuration of the \texttt{can} driver with \texttt{settings} values. You cannot change the \texttt{can} name -- see \refSectionPage{driverInstances}. The driver is configured for being able to send any (standard / extended, data / remote) frame, and to receive all (standard / extended, data / remote) frames. If you want to define reception filters, see \refSectionPage{primaryFilters} and  \refSectionPage{secondaryFilters}.
 
-{\bf Lines 10 to 15.} Last step: the configuration of the \texttt{ACAN::can0} driver returns an error code, stored in the \texttt{errorCode} constant. It has the value $0$ if all is ok -- see \refSubsectionPage{errorCodeMethodBegin}.
+{\bf Lines 10 to 15.} Last step: the configuration of the \texttt{can} driver returns an error code, stored in the \texttt{errorCode} constant. It has the value $0$ if all is ok -- see \refSubsectionPage{errorCodeMethodBegin}.
 
 {\bf Line 18.} The \texttt{gSendDate} global variable is used for sending a CAN message every 2 s.
 
@@ -553,7 +554,7 @@ void loop () {
 
 \sectionLabel{The \texttt{CANMessage} class}{CANMessageClass}
 
-{\bf Note. } The \texttt{CANMessage} class is declared in the \texttt{CANMessage.h} header file. The class declaration is protected by an include guard that causes the macro \texttt{GENERIC\_CAN\_MESSAGE\_DEFINED} to be defined. The ACAN driver contains an identical \texttt{CANMessage.h} file header, enabling using both ACAN driver and ACAN2515 driver in a sketch.
+{\bf Note. } The \texttt{CANMessage} class is declared in the \texttt{CANMessage.h} header file. The class declaration is protected by an include guard that causes the macro \texttt{GENERIC\_CAN\_MESSAGE\_DEFINED} to be defined. The ACAN\footnote{The ACAN driver is a CAN driver for FlexCAN modules integrated in the Teensy 3.x microcontrollers.} driver contains an identical \texttt{CANMessage.h} file header, enabling using both ACAN driver and ACAN2515 driver in a sketch.
 
 A \emph{CAN message} is an object that contains all CAN frame user informations. All properties are initialized by default, and represent a standard data frame, with an identifier equal to $0$, and without any data.
 
@@ -580,7 +581,7 @@ Note the message datas are defined by an {\bf\texttt{union}}. So message datas c
 The \texttt{idx} property is not used in CAN frames, but:
 \begin{itemize}
   \item for a received message, it contains the acceptance filter index (see \refSubsectionPage{usingIDXvalue} and \refSubsectionPage{usingIDXvalueWithSecondaryFilter});
-  \item on sending messages, it is used for selecting the transmit buffer.
+  \item on sending messages, it is used for selecting the transmit buffer (see \refSubsectionPage{tryToSendMethod}).
 \end{itemize}
 
 
@@ -591,36 +592,294 @@ The \texttt{idx} property is not used in CAN frames, but:
 
 
 
-\section{Connecting a \texttt{MCP2515}}
+\section{Connecting a \texttt{MCP2515} to your microcontroller}
 
+You have several connection possibilities:
+\begin{itemize}
+  \item using \emph{software SPI} or \emph{hardware SPI};
+  \item using the \texttt{MCP2515} interrupt signal or not.
+\end{itemize}
 
+For efficiency, it is recommended to use \emph{hardware SPI} and the \texttt{MCP2515} interrupt signal.
 
+\subsection{Software SPI}
 
+Software SPI requires four pins that provide digital input and output. We name these pins \texttt{MCP2515\_CS}, \texttt{MCP2515\_SCK}\texttt{MCP2515\_SI} and \texttt{MCP2515\_SO}, as shown in \refFigure{}{figureSoftwareSPI}.
 
-Driver instances are global variables. You cannot choose their names, they are defined by the library.
-
-\begin{table}[!ht]
+\begin{figure}[!ht]
   \small
-  \onehalfspacing
   \centering
-  \begin{tabular}{lllll}
-    \textbf{Teensy}& \textbf{Driver name} \\
-    Teensy 3.1 / 3.2 & \texttt{ACAN::can0}\\
-    Teensy 3.5 &  \texttt{ACAN::can0}\\
-    Teensy 3.6 &  \texttt{ACAN::can0}, \texttt{ACAN::can1}\\
-   \end{tabular}
-  \caption{Driver global variables}
-  \labelTableau{varGlobalePiloteFlexCAN}
-\end{table}
+  \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
+  %--- Microcontroller
+    \draw[very thick, fill=lightgray!25] (-1.5, 0) -- ++(5.5, 0)  -- ++(0, 2.5) -- ++ (-5.5, 0) ;
+    \draw (0, 1.25) node {\bf\emph{Microcontroller}};
+  %--- MCP2515
+    \draw[very thick, fill=lightgray!25] (12, 0) -- ++(-4, 0)  -- ++(0, 2.5) -- ++ (4, 0) ;
+    \draw (10.5, 1.25) node {\bf\emph{MCP2515}};
+  %--- CS
+    \draw[->, thick] (4, 2) -- ++ (4, 0) ;
+    \draw (8, 2) node[right] {$\overline{\tt CS}$};
+    \draw (4, 2) node[left] {\tt MCP2515\_CS};
+  %--- SCK
+    \draw[->, thick] (4, 1.5) -- ++ (4, 0) ;
+    \draw (8, 1.5) node[right] {\tt SCK};
+    \draw (4, 1.5) node[left] {\tt MCP2515\_SCK};
+  %--- SI
+    \draw[->, thick] (4, 1) -- ++ (4, 0) ;
+    \draw (8, 1) node[right] {\tt SI};
+    \draw (4, 1) node[left] {\tt MCP2515\_SI};
+  %--- SO
+    \draw[<-, thick] (4, .5) -- ++ (4, 0) ;
+    \draw (8, .5) node[right] {\tt S0};
+    \draw (4, .5) node[left] {\tt MCP2515\_SO};
+  \end{tikzpicture}
+  \caption{Software SPI}
+  \labelFigure{figureSoftwareSPI}
+\end{figure}
 
-Code snippets in this document uses \texttt{ACAN::can0}. They also apply to \texttt{ACAN::can1} of Teensy 3.6.
-
-{\bf Note.} Drivers variables are \texttt{ACAN} class static properties. This choice may seem strange. However, a common error is to declare its own driver variable: 
+The four argument constructor of \texttt{ACAN2515} class specifies the for pins used for handling software SPI:
 { \small\begin{lstlisting}[language=c++]
-ACAN myCAN ; // Don't do that, it is an error !!!
+static const byte MCP2515_CS  = 20 ; // CS input of MCP2515 
+static const byte MCP2515_SCK = 27 ; // SCK input of MCP2515 
+static const byte MCP2515_SI  = 28 ; // SI input of MCP2515  
+static const byte MCP2515_SO  = 39 ; // SO output of MCP2515 
+
+ACAN2515 can (MCP2515_CS, MCP2515_SCK, MCP2515_SI, MCP2515_SO) ;
 \end{lstlisting}}
 
-Declaring drivers variables as \texttt{ACAN} class static properties\footnote{The \texttt{ACAN} constructor is declared \texttt{private}.} enables the compiler to raise an error if you try to declare your own driver variable.
+
+\subsection{Hardware SPI}
+
+Hardware SPI requires you use dedicaced pins of your microcontroller (\refFigure{}{figureHardwareSPI}). You can use alternate pins (see below), and if your microcontroller supports several hardware SPIs, you can select any of them. However, you should provide one digital port for handling $\overline{\tt CS}$ signal.
+
+\begin{figure}[!ht]
+  \small
+  \centering
+  \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
+  %--- Microcontroller
+    \draw[very thick, fill=lightgray!25] (-1.5, 0) -- ++(5.5, 0)  -- ++(0, 2.5) -- ++ (-5.5, 0) ;
+    \draw (0, 1.25) node {\bf\emph{Microcontroller}};
+  %--- MCP2515
+    \draw[very thick, fill=lightgray!25] (12, 0) -- ++(-4, 0)  -- ++(0, 2.5) -- ++ (4, 0) ;
+    \draw (10.5, 1.25) node {\bf\emph{MCP2515}};
+  %--- CS
+    \draw[->, thick] (4, 2) -- ++ (4, 0) ;
+    \draw (8, 2) node[right] {$\overline{\tt CS}$};
+    \draw (4, 2) node[left] {\tt MCP2515\_CS};
+  %--- SCK
+    \draw[->, thick] (4, 1.5) -- ++ (4, 0) ;
+    \draw (8, 1.5) node[right] {\tt SCK};
+    \draw (4, 1.5) node[left] {\tt SCK};
+  %--- SI
+    \draw[->, thick] (4, 1) -- ++ (4, 0) ;
+    \draw (8, 1) node[right] {\tt SI};
+    \draw (4, 1) node[left] {\tt MOSI};
+  %--- SO
+    \draw[<-, thick] (4, .5) -- ++ (4, 0) ;
+    \draw (8, .5) node[right] {\tt S0};
+    \draw (4, .5) node[left] {\tt MISO};
+  \end{tikzpicture}
+  \caption{Hardware SPI}
+  \labelFigure{figureHardwareSPI}
+\end{figure}
+
+The two argument constructor of \texttt{ACAN2515} class specifies the for pins used for handling hardware SPI:
+{ \small\begin{lstlisting}[language=c++]
+static const byte MCP2515_CS  = 20 ; // CS input of MCP2515 
+
+ACAN2515 can (MCP2515_CS, SPI) ;
+\end{lstlisting}}
+
+If your microcontroller provides \texttt{SPI2}, \texttt{SPI3}, … you can select the one you want:
+{ \small\begin{lstlisting}[language=c++]
+ACAN2515 can (MCP2515_CS, SPI2) ;
+\end{lstlisting}}
+
+The \texttt{begin} function of \texttt{ACAN2515} library configures the selected SPI with a speed of 10 Mbit/s.
+
+\subsubsection{Using alternate pins on Teensy 3.x}
+
+On Teensy 3.x, \emph{the main SPI pins are enabled by default. SPI pins can be moved to their alternate position with \texttt{SPI.setMOSI(pin)}, \texttt{SPI.setMISO(pin)}, and \texttt{SPI.setSCK(pin)}. You can move all of them, or just the ones that conflict, as you prefer.}\footnote{See \url{https://www.pjrc.com/teensy/td_libs_SPI.html}}
+
+For example, on a Teensy 3.5, I want to use \texttt{SPI0} with these alternate pins\footnote{See \url{https://www.pjrc.com/teensy/pinout.html}}:
+\begin{figure}[!ht]
+  \small
+  \centering
+  \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
+  %--- Microcontroller
+    \draw[very thick, fill=lightgray!25] (-1.5, 0) -- ++(5.5, 0)  -- ++(0, 2.5) -- ++ (-5.5, 0) ;
+    \draw (0, 1.25) node {\bf\emph{Teensy 3.5}};
+  %--- MCP2515
+    \draw[very thick, fill=lightgray!25] (12, 0) -- ++(-4, 0)  -- ++(0, 2.5) -- ++ (4, 0) ;
+    \draw (10.5, 1.25) node {\bf\emph{MCP2515}};
+  %--- CS
+    \draw[->, thick] (4, 2) -- ++ (4, 0) ;
+    \draw (8, 2) node[right] {$\overline{\tt CS}$};
+    \draw (4, 2) node[left] {\tt MCP2515\_CS};
+  %--- SCK
+    \draw[->, thick] (4, 1.5) -- ++ (4, 0) ;
+    \draw (8, 1.5) node[right] {\tt SCK};
+    \draw (4, 1.5) node[left] {\tt SCK0};
+    \draw (4, 1.5) node[above right] {\tt 27};
+  %--- SI
+    \draw[->, thick] (4, 1) -- ++ (4, 0) ;
+    \draw (8, 1) node[right] {\tt SI};
+    \draw (4, 1) node[left] {\tt MOSI0};
+    \draw (4, 1) node[above right] {\tt 28};
+  %--- SO
+    \draw[<-, thick] (4, .5) -- ++ (4, 0) ;
+    \draw (8, .5) node[right] {\tt S0};
+    \draw (4, .5) node[left] {\tt MISO0};
+    \draw (4, .5) node[above right] {\tt 39};
+  \end{tikzpicture}
+  \caption{Using hardware SPI alternate pins on a Teensy 3.5}
+  \labelFigure{figureHardwareSPIAlternatePins}
+\end{figure}
+
+You call the \texttt{SPI.setMOSI}, \texttt{SPI.setMISO}, and \texttt{SPI.setSCK} functions \textbf{before} calling the \texttt{begin} function of your \texttt{ACAN2515} instance (generally done in the \texttt{setup} function):
+{ \small\begin{lstlisting}[language=c++]
+static const byte MCP2515_SCK = 27 ; // SCK input of MCP2515 
+static const byte MCP2515_SI  = 28 ; // SI input of MCP2515  
+static const byte MCP2515_SO  = 39 ; // SO output of MCP2515 
+...
+void setup () {
+  ...
+  SPI.setMOSI (MCP2515_SI) ;
+  SPI.setMISO (MCP2515_SO) ;
+  SPI.setSCK (MCP2515_SCK) ;
+  ...
+  const uint32_t errorCode = can.begin (settings) ;
+  ...
+\end{lstlisting}}
+
+Note you can use the \texttt{SPI.pinIsMOSI}, \texttt{SPI.pinIsMISO}, and \texttt{SPI.pinIsSCK} functions to check if the alternate pins you select are valid:
+{ \small\begin{lstlisting}[language=c++]
+void setup () {
+  ...
+  Serial.print ("Using pin #") ;
+  Serial.print (MCP2515_SI) ;
+  Serial.print (" for MOSI: ") ;
+  Serial.println (SPI.pinIsMOSI (MCP2515_SI) ? "yes" : "NO!!!") ;
+  Serial.print ("Using pin #") ;
+  Serial.print (MCP2515_SO) ;
+  Serial.print (" for MISO: ") ;
+  Serial.println (SPI.pinIsMISO (MCP2515_SO) ? "yes" : "NO!!!") ;
+  Serial.print ("Using pin #") ;
+  Serial.print (MCP2515_SCK) ;
+  Serial.print (" for SCK: ") ;
+  Serial.println (SPI.pinIsSCK (MCP2515_SCK) ? "yes" : "NO!!!") ;
+  SPI.setMOSI (MCP2515_SI) ;
+  SPI.setMISO (MCP2515_SO) ;
+  SPI.setSCK (MCP2515_SCK) ;
+  ...
+  const uint32_t errorCode = can.begin (settings) ;
+  ...
+\end{lstlisting}}
+
+
+
+\subsection{\texttt{MCP2515} interrupt pin is not connected}
+
+This design saves one pin. This is not recommended because incoming messages can be lost, the \texttt{MCP2515} receive buffer is 2-message wide.
+\begin{figure}[!ht]
+  \small
+  \centering
+  \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
+  %--- Microcontroller
+    \draw[very thick, fill=lightgray!25] (-1.5, 0) -- ++(5.5, 0)  -- ++(0, 1) -- ++ (-5.5, 0) ;
+    \draw (0, .5) node {\bf\emph{Microcontroller}};
+  %--- MCP2515
+    \draw[very thick, fill=lightgray!25] (12, 0) -- ++(-4, 0)  -- ++(0, 1) -- ++ (4, 0) ;
+    \draw (10.5, .5) node {\bf\emph{MCP2515}};
+  %--- INT
+    \draw[<-, thick] (6, .5) -- ++ (2, 0) ;
+    \draw (8, .5) node[right] {$\overline{\tt INT}$};
+    \draw (6, .5) node[left] {\tt nc};
+  \end{tikzpicture}
+  \caption{the $\overline{\tt INT}$ pin of the \texttt{MPC2515} is not used}
+  \labelFigure{figureNoInterrupt}
+\end{figure}
+
+You have two possibilities: calling the \texttt{polling} function in \texttt{loop}, or calling the \texttt{isr} function in a periodic interrupt function.
+
+
+\subsubsection{Calling the \texttt{polling} function in \texttt{loop}}
+
+Your \texttt{loop} function should call the \texttt{polling} function as often as possible:
+{ \small\begin{lstlisting}[language=c++]
+void loop () {
+  can.polling () ;
+  ...
+\end{lstlisting}}
+
+\subsubsection{Calling the \texttt{isr} function in a periodic interrupt function}
+
+You define a periodic interrupt, and call \texttt{can.isr} function in its attached interrupt service routine:
+{ \small\begin{lstlisting}[language=c++]
+void periodicISR () {
+  can.isr () ;
+}
+
+void setup () {
+  ...
+  const uint32_t errorCode = can.begin (settings) ;
+  ...
+//--- This should be done AFTER the call of can.begin
+  Timer1.initialize (1000) ; // 1ms
+  Timer1.attachInterrupt (periodicISR);
+  ...
+}
+\end{lstlisting}}
+
+
+\subsection{Using \texttt{MCP2515} interrupt pin}
+
+This design requires one interrupt pin. This is recommended for not losting incoming messages.
+\begin{figure}[!ht]
+  \small
+  \centering
+  \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
+  %--- Microcontroller
+    \draw[very thick, fill=lightgray!25] (-1.5, 0) -- ++(5.5, 0)  -- ++(0, 1) -- ++ (-5.5, 0) ;
+    \draw (0, .5) node {\bf\emph{Microcontroller}};
+  %--- MCP2515
+    \draw[very thick, fill=lightgray!25] (12, 0) -- ++(-4, 0)  -- ++(0, 1) -- ++ (4, 0) ;
+    \draw (10.5, .5) node {\bf\emph{MCP2515}};
+  %--- INT
+    \draw[<-, thick] (4, .5) -- ++ (4, 0) ;
+    \draw (8, .5) node[right] {$\overline{\tt INT}$};
+    \draw (4, .5) node[left] {\tt MCP2515\_INT};
+  \end{tikzpicture}
+  \caption{the $\overline{\tt INT}$ pin of the \texttt{MPC2515} is used}
+  \labelFigure{figureInterrupt}
+\end{figure}
+
+It is up to you to set up the interrupt handling. First, you declare the interrupt pin number (you can select any pin that have interrupt capability):
+{ \small\begin{lstlisting}[language=c++]
+static const byte MCP2515_IRQ = 37 ; // INT output of MCP2515
+\end{lstlisting}}
+
+Then, you write the interrupt service routine; it just calls the \texttt{isr} method of your \texttt{can} object:
+{ \small\begin{lstlisting}[language=c++]
+void canISR () {
+  can.isr () ;
+}
+\end{lstlisting}}
+
+Finally, in the \texttt{setup} function, you configure the pin as external interrupt, and attach the interrupt service routine; this should be done before calling \texttt{can.begin}:
+{ \small\begin{lstlisting}[language=c++]
+void setup () {
+  ...
+//--- Configure MCP2515_IRQ as external interrupt
+  pinMode (MCP2515_IRQ, INPUT_PULLUP) ;
+  attachInterrupt (digitalPinToInterrupt (MCP2515_IRQ), canISR, LOW) ;
+  ...
+  const uint32_t errorCode = can.begin (settings) ;
+  ...
+\end{lstlisting}}
+
+
+
 
 
 
@@ -629,51 +888,52 @@ Declaring drivers variables as \texttt{ACAN} class static properties\footnote{Th
 
 The \texttt{ACAN2515} driver define three transmit buffers, each of them corresponding to a MCP2515 hardware buffer.
 
-\subsection{The \texttt{tryToSend} method}
+\subsectionLabel{The \texttt{tryToSend} method}{tryToSendMethod}
 
-You select the transmit buffer by setting the \texttt{idx} property of a message:
+{\small\begin{lstlisting}[language=c++]
+  ...
+  CANMessage message ;
+  ... setup message ...
+  const bool ok = can.tryToSend (message) ;
+  ...
+\end{lstlisting}}
+
+You call the \texttt{tryToSend} method for sending a message in the CAN network. Note this function returns before the message is actually sent; this function only appends the message to a transmit buffer.
+
+The \texttt{idx} field of the message is an 8-bit unsigned integer:
 \begin{itemize}
-  \item \texttt{0} (default value) the message is sent trought the driver transmit buffer 0 by \texttt{TXB0};
-  \item \texttt{1} the message is sent trought the driver transmit buffer 1 by \texttt{TXB1};
-  \item \texttt{2} the message is sent trought the driver transmit buffer 2 by \texttt{TXB2};
-  \item any other value is interpreted as 0 the message is sent trought the driver transmit buffer 0 by \texttt{TXB0}.
+  \item the bits 5 to 0 define the transmit buffer (0 $\rightarrow$ transmit buffer 0, 1 $\rightarrow$ transmit buffer 1, 2 $\rightarrow$ transmit buffer 2, any other value $\rightarrow$ transmit buffer 0);
+  \item the bits 7 and 6 define the priority of the \texttt{TXBi} corresponding buffer\footnote{See Microchip document \texttt{DS20001801H}, section 3.2 page 15.}.
 \end{itemize}
 
-Call the method \texttt{tryToSend} for sending frames; it returns:
+The default value of the \texttt{idx} field is zero: the message is sent throught \texttt{TXB0} with a priority equal to 0.
+
+The method \texttt{tryToSend} returns:
 \begin{itemize}
   \item \texttt{true} if the message has been successfully transmitted to driver transmit buffer; note that does not mean that the CAN frame has been actually sent;
   \item \texttt{false} if the message has not been successfully transmitted to driver transmit buffer, it was full.
 \end{itemize}
 
-So it is wise to systematically test the returned value. One way to achieve this is to loop while there is no room in driver transmit buffer:
-{ \small
-  \begin{lstlisting}[language=c++]
-while (!ACAN::can0.tryToSend (message)) {
-  yield () ;
-}
-  \end{lstlisting}
-}
+So it is wise to systematically test the returned value.
 
-A better way is to use a global variable to note if  message has been successfully transmitted to driver transmit buffer. For example, for sending a message every 2 seconds: 
+A way is to use a global variable to note if the message has been successfully transmitted to driver transmit buffer. For example, for sending a message every 2 seconds: 
 
-{ \small
-  \begin{lstlisting}[language=c++]
+{\small\begin{lstlisting}[language=c++]
 static unsigned gSendDate = 0 ;
 
 void loop () {
   CANMessage message ;
   if (gSendDate < millis ()) {
     // Initialize message properties
-    const bool ok = ACAN::can0.tryToSend (message) ;
+    const bool ok = can.tryToSend (message) ;
     if (ok) {
       gSendDate += 2000 ;
     }
   }
 }
-  \end{lstlisting}
-}
+\end{lstlisting}}
 
-An other hint to use a global boolean variable as a flag that remains \texttt{true} while the frame has not been sent.
+An other hint to use a global boolean variable as a flag that remains \texttt{true} while the message has not been sent.
 
 { \small
   \begin{lstlisting}[language=c++]
@@ -688,7 +948,7 @@ void loop () {
   if (gSendMessage) {
     CANMessage message ;
     // Initialize message properties
-    const bool ok = ACAN::can0.tryToSend (message) ;
+    const bool ok = can.tryToSend (message) ;
     if (ok) {
       gSendMessage = false ;
     }
@@ -699,25 +959,32 @@ void loop () {
 }
 
 
-\subsectionLabel{Driver transmit buffer size}{driverTransmitBufferSize}
+\subsectionLabel{Driver transmit buffer sizes}{driverTransmitBufferSize}
 
-By default, driver transmit buffer size is 16. You can change this default value by setting the \texttt{mTransmitBufferSize} property of \texttt{settings} variable:
+By default:
+\begin{itemize}
+  \item driver transmit buffer 0 size is 16;
+  \item driver transmit buffer 1 and 2 sizes are 0.
+\end{itemize}
+
+You can change the default values by setting the \texttt{mTransmitBuffer0Size}, \texttt{mTransmitBuffer1Size}, \texttt{mTransmitBuffer2Size} properties of \texttt{settings} variable; for example:
 
 { \small\begin{lstlisting}[language=c++]
-ACANSettings settings (125 * 1000) ;
-settings.mTransmitBufferSize = 30 ;
-const uint32_t errorCode = ACAN::can0.begin (settings) ;
+ACAN2515Settings settings (...) ;
+settings.mTransmitBuffer0Size = 30 ;
+const uint32_t errorCode = can.begin (settings) ;
 ...
 \end{lstlisting}}
 
-As the size of \texttt{CANMessage} class is 16 bytes, the actual size of the driver transmit buffer is the value of \texttt{settings.mTransmitBufferSize * 16}.
+A zero size is valid: calling the \texttt{tryToSend} method returns \texttt{true} if the corresponding \texttt{TXBi} register is empty, and \texttt{false} if it is full.
+
 
 
 \subsection{The \texttt{transmitBufferSize} method}
 
 The \texttt{transmitBufferSize} method returns the size of the driver transmit buffer, that is the value of \texttt{settings.mTransmitBufferSize}.
 { \small\begin{lstlisting}[language=c++]
-const uint32_t s = ACAN::can0.transmitBufferSize () ;
+const uint32_t s = can.transmitBufferSize () ;
 \end{lstlisting}}
 
 
@@ -725,7 +992,7 @@ const uint32_t s = ACAN::can0.transmitBufferSize () ;
 
 The \texttt{transmitBufferCount} method returns the current number of messages in the transmit buffer.
 { \small\begin{lstlisting}[language=c++]
-const uint32_t n = ACAN::can0.transmitBufferCount () ;
+const uint32_t n = can.transmitBufferCount () ;
 \end{lstlisting}}
 
 
@@ -733,7 +1000,7 @@ const uint32_t n = ACAN::can0.transmitBufferCount () ;
 
 The \texttt{transmitBufferPeakCount} method returns the peak value of message count in the transmit buffer.
 { \small\begin{lstlisting}[language=c++]
-const uint32_t max = ACAN::can0.transmitBufferPeakCount () ;
+const uint32_t max = can.transmitBufferPeakCount () ;
 \end{lstlisting}}
 
 Il the transmit buffer is full when \texttt{tryToSend} is called, the return value is \texttt{false}. In such case, the following calls of \texttt{transmitBufferPeakCount} will return \texttt{transmitBufferSize ()+1}. 
@@ -755,9 +1022,9 @@ So, when \texttt{transmitBufferPeakCount} returns a value lower or equal to \tex
 %Setting \texttt{settings.doubleTxMB} to \texttt{true} enables the driver to use two \emph{mailboxes}.
 %
 %{ \small\begin{lstlisting}[language=c++]
-%ACANSettings settings (125 * 1000) ;
+%ACAN2515Settings settings (125 * 1000) ;
 %settings.doubleTxMB = true ;
-%const uint32_t errorCode = ACAN::can0.begin (settings) ;
+%const uint32_t errorCode = can.begin (settings) ;
 %...
 %\end{lstlisting}}
 
@@ -783,7 +1050,7 @@ However, for sending remote frames, you also invoke the \texttt{tryToSend} metho
 CanMessage message ;
 message.rtr = true ; // Remote frame
 ... 
-const bool sent = ACAN::can0.tryToSend (message) ;
+const bool sent = can.tryToSend (message) ;
 ...
 \end{lstlisting}}
 
@@ -805,15 +1072,15 @@ This is a basic example:
 
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACANSettings settings (125 * 1000) ;
+  ACAN2515Settings settings (125 * 1000) ;
   ...
-  const uint32_t errorCode = ACAN::can0.begin (settings) ; // No receive filter
+  const uint32_t errorCode = can.begin (settings) ; // No receive filter
   ...
 }
 
 void loop () {
   CANMessage message ;
-  if (ACAN::can0.receive (message)) {
+  if (can.receive (message)) {
     // Handle received message
   }
 }
@@ -828,15 +1095,15 @@ The \texttt{receive} method:
 You need to manually dispatch the received messages. If you did not provide any receive filter, you should check the \texttt{rtr} bit (remote or data frame?), the \texttt{ext} bit (standard or extended frame), and the \texttt{id} (identifier value). The following snippet dispatches three messages:
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACANSettings settings (125 * 1000) ;
+  ACAN2515Settings settings (125 * 1000) ;
   ...
-  const uint32_t errorCode = ACAN::can0.begin (settings) ; // No receive filter
+  const uint32_t errorCode = can.begin (settings) ; // No receive filter
   ...
 }
 
 void loop () {
   CANMessage message ;
-  if (ACAN::can0.receive (message)) {
+  if (can.receive (message)) {
     if (!message.rtr && message.ext && (message.id == 0x123456)) {
       handle_myMessage_0 (message) ; // Extended data frame, id is 0x123456
     }else if (!message.rtr && !message.ext && (message.id == 0x234)) {
@@ -867,9 +1134,9 @@ So are the header of the \texttt{handle\_myMessage\_1} and the \texttt{handle\_m
 By default, the driver receive buffer size is 32.  You can change this default value by setting the \texttt{mReceiveBufferSize} property of \texttt{settings} variable:
 
 { \small\begin{lstlisting}[language=c++]
-ACANSettings settings (125 * 1000) ;
+ACAN2515Settings settings (125 * 1000) ;
 settings.mReceiveBufferSize = 100 ;
-const uint32_t errorCode = ACAN::can0.begin (settings) ;
+const uint32_t errorCode = can.begin (settings) ;
 ...
 \end{lstlisting}}
 
@@ -880,7 +1147,7 @@ As the size of \texttt{CANMessage} class is 16 bytes, the actual size of the dri
 
 The \texttt{receiveBufferSize} method returns the size of the driver receive buffer, that is the value of \texttt{settings.mReceiveBufferSize}.
 { \small\begin{lstlisting}[language=c++]
-const uint32_t s = ACAN::can0.receiveBufferSize () ;
+const uint32_t s = can.receiveBufferSize () ;
 \end{lstlisting}}
 
 
@@ -888,7 +1155,7 @@ const uint32_t s = ACAN::can0.receiveBufferSize () ;
 
 The \texttt{receiveBufferCount} method returns the current number of messages in the driver receive buffer.
 { \small\begin{lstlisting}[language=c++]
-const uint32_t n = ACAN::can0.receiveBufferCount () ;
+const uint32_t n = can.receiveBufferCount () ;
 \end{lstlisting}}
 
 
@@ -896,10 +1163,10 @@ const uint32_t n = ACAN::can0.receiveBufferCount () ;
 
 The \texttt{receiveBufferPeakCount} method returns the peak value of message count in the driver receive buffer.
 { \small\begin{lstlisting}[language=c++]
-const uint32_t max = ACAN::can0.receiveBufferPeakCount () ;
+const uint32_t max = can.receiveBufferPeakCount () ;
 \end{lstlisting}}
 
-Note the driver receive buffer may overflow, if messages are not retrieved (by calls of \texttt{receive} or \texttt{dispatchReceivedMessage} methods). If an overflow occurs, further calls of \texttt{ACAN::can0.receiveBufferPeakCount ()} return \texttt{ACAN::can0.receiveBufferSize ()+1}.
+Note the driver receive buffer may overflow, if messages are not retrieved (by calls of \texttt{receive} or \texttt{dispatchReceivedMessage} methods). If an overflow occurs, further calls of \texttt{can.receiveBufferPeakCount ()} return \texttt{can.receiveBufferSize ()+1}.
 
 
 
@@ -910,14 +1177,14 @@ Note the driver receive buffer may overflow, if messages are not retrieved (by c
 
 \sectionLabel{Configuration}{FlexCANconfiguration}
 
-The \texttt{mConfiguration} property of the \texttt{settings} variable defines the FlexCAN module configuration -- see \refTableau {configFlexCAN}. By default, its value is \texttt{ACANSettings::k12\_12\_Filters}.
+The \texttt{mConfiguration} property of the \texttt{settings} variable defines the FlexCAN module configuration -- see \refTableau {configFlexCAN}. By default, its value is \texttt{ACAN2515Settings::k12\_12\_Filters}.
 
 You can easily override the default configuration:
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACANSettings settings (125 * 1000) ;
-  settings.mConfiguration = ACANSettings::k14_18_Filters ;
-  const uint32_t errorCode = ACAN::can0.begin (settings) ; // No receive filter
+  ACAN2515Settings settings (125 * 1000) ;
+  settings.mConfiguration = ACAN2515Settings::k14_18_Filters ;
+  const uint32_t errorCode = can.begin (settings) ; // No receive filter
   ...
 }
 \end{lstlisting}}
@@ -952,19 +1219,19 @@ void setup () {
 %
 %By default, no filtering of received message occurs, that is all network CAN frames are captured and transfered into the FlexCAN RxFIFO by the FlexCAN module, and transfered info the driver receive buffer by the driver.
 %
-%In the following example, all network messages are retrieved by calling \texttt{ACAN::can0.receive}. Then, the \textbf{if} ... \textbf{else if} dispatches useful messages to \texttt{handle\_myMessage\_0}, ... functions.
+%In the following example, all network messages are retrieved by calling \texttt{can.receive}. Then, the \textbf{if} ... \textbf{else if} dispatches useful messages to \texttt{handle\_myMessage\_0}, ... functions.
 %
 %{ \small\begin{lstlisting}[language=c++]
 %void setup () {
-%  ACANSettings settings (125 * 1000) ;
+%  ACAN2515Settings settings (125 * 1000) ;
 %  ...
-%  const uint32_t errorCode = ACAN::can0.begin (settings) ; // No receive filter
+%  const uint32_t errorCode = can.begin (settings) ; // No receive filter
 %  ...
 %}
 %
 %void loop () {
 %  CANMessage message ;
-%  if (ACAN::can0.receive (message)) { // All network frames are retrieved
+%  if (can.receive (message)) { // All network frames are retrieved
 %    if (!message.rtr && message.ext && (message.id == 0x123456)) {
 %      handle_myMessage_0 (message) ; // Extended data frame, id is 0x123456
 %    }else if (!message.rtr && !message.ext && (message.id == 0x234)) {
@@ -990,14 +1257,14 @@ The driver lets you to define two kinds of filters: \emph{primary filters} and \
 For defining \emph{primary filters}\footnote{For \emph{secondary filters}, see \refSectionPage{secondaryFilters}.}, you write:
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACANSettings settings (125 * 1000) ;
+  ACAN2515Settings settings (125 * 1000) ;
   ...
   const ACANPrimaryFilter primaryFilters [] = {
     ACANPrimaryFilter (kData, kExtended, 0x123456), // Filter #0
     ACANPrimaryFilter (kData, kStandard, 0x234),    // Filter #1
     ACANPrimaryFilter (kRemote, kStandard, 0x542)   // Filter #2
   } ;
-  const uint32_t errorCode = ACAN::can0.begin (settings,
+  const uint32_t errorCode = can.begin (settings,
                                                primaryFilters, // The filter array
                                                3) ; // Filter array size
   ...
@@ -1005,7 +1272,7 @@ void setup () {
 
 void loop () {
   CANMessage message ;
-  if (ACAN::can0.receive (message)) { // Only frames that pass a filter are retrieved
+  if (can.receive (message)) { // Only frames that pass a filter are retrieved
     if (!message.rtr && message.ext && (message.id == 0x123456)) {
       handle_myMessage_0 (message) ; // Extended data frame, id is 0x123456
     }else if (!message.rtr && !message.ext && (message.id == 0x234)) {
@@ -1026,7 +1293,7 @@ Each element of the \texttt{primaryFilters} constant array defines an acceptance
 \end{itemize}
 
 
-{\bf Maximum number of \emph{primary filters}.} The number of \emph{primary filters} is limited: 12 by default, as the default value of \texttt{settings.mConfiguration} is \texttt{ACANSettings::k12\_12\_Filters}. See \refSectionPage{FlexCANconfiguration} for getting the number of \emph{primary filters} for each configuration, and for setting your own configuration.
+{\bf Maximum number of \emph{primary filters}.} The number of \emph{primary filters} is limited: 12 by default, as the default value of \texttt{settings.mConfiguration} is \texttt{ACAN2515Settings::k12\_12\_Filters}. See \refSectionPage{FlexCANconfiguration} for getting the number of \emph{primary filters} for each configuration, and for setting your own configuration.
 
 {\bf Test order.} The FlexCAN hardware examines the filters in the increasing order of their indexes in the \texttt{primaryFilters} constant array. As soon as a match occurs, the message is transfered to Rx FIFO buffer and the examination process is completed. If no match occurs, the message is lost.
 
@@ -1143,20 +1410,20 @@ The \texttt{receive} method retrieves a received message. When you define primar
 
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACANSettings settings (125 * 1000) ;
+  ACAN2515Settings settings (125 * 1000) ;
   ...
   const ACANPrimaryFilter primaryFilters [] = {
     ACANPrimaryFilter (kData, kExtended, 0x123456), // Filter #0
     ACANPrimaryFilter (kData, kStandard, 0x234),    // Filter #1
     ACANPrimaryFilter (kRemote, kStandard, 0x542)   // Filter #2
   } ;
-  const uint32_t errorCode = ACAN::can0.begin (settings, primaryFilters, 3) ;
+  const uint32_t errorCode = can.begin (settings, primaryFilters, 3) ;
   ...
 }
 
 void loop () {
   CANMessage message ;
-  if (ACAN::can0.receive (message)) { // Only frames that pass a filter are retrieved
+  if (can.receive (message)) { // Only frames that pass a filter are retrieved
     switch (message.idx) {
     case 0:
       handle_myMessage_0 (message) ; // Extended data frame, id is 0x123456
@@ -1200,21 +1467,21 @@ Depending from the configuration, you can define several \emph{secondary filters
 This is an example without primary filter, and with secondary filters:
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACANSettings settings (125 * 1000) ;
+  ACAN2515Settings settings (125 * 1000) ;
   ...
   const ACANSecondaryFilter secondaryFilters [] = {
     ACANSecondaryFilter (kData, kExtended, 0x123456), // Filter #0
     ACANSecondaryFilter (kData, kStandard, 0x234),    // Filter #1
     ACANSecondaryFilter (kRemote, kStandard, 0x542)   // Filter #2
   } ;
-  const uint32_t errorCode = ACAN::can0.begin (settings,
+  const uint32_t errorCode = can.begin (settings,
                                                NULL, 0, // No primary filter
                                                secondaryFilters, // The filter array
                                                3) ; // Filter array size
   ...
 void loop () {
   CANMessage message ;
-  if (ACAN::can0.receive (message)) { // Only frames that pass a filter are retrieved
+  if (can.receive (message)) { // Only frames that pass a filter are retrieved
     if (!message.rtr && message.ext && (message.id == 0x123456)) {
       handle_myMessage_0 (message) ; // Extended data frame, id is 0x123456
     }else if (!message.rtr && !message.ext && (message.id == 0x234)) {
@@ -1235,7 +1502,7 @@ Each element of the \texttt{secondaryFilters} constant array defines an acceptan
   \item the required identifier value.
 \end{itemize}
 
-{\bf Maximum number of \emph{secondary filters}.} The number of \emph{secondary filters} is limited: 12 by default, as the default value of \texttt{settings.mConfiguration} is \texttt{ACANSettings::k12\_12\_Filters}. See \refSectionPage{FlexCANconfiguration} for getting the number of \emph{secondary filters} for each configuration, and for changing default value.
+{\bf Maximum number of \emph{secondary filters}.} The number of \emph{secondary filters} is limited: 12 by default, as the default value of \texttt{settings.mConfiguration} is \texttt{ACAN2515Settings::k12\_12\_Filters}. See \refSectionPage{FlexCANconfiguration} for getting the number of \emph{secondary filters} for each configuration, and for changing default value.
 
 {\bf Test order.} The FlexCAN hardware examines the filters in the increasing order of their indexes in the \texttt{secondaryFilters} constant array. As soon as a match occurs, the message is transfered to Rx FIFO buffer and the examination process is completed. If no match occurs, the message is lost.
 
@@ -1248,7 +1515,7 @@ A consequence is if a filter appears twice, the second occurrence will never mat
 This is an example with one primary filter, and two secondary filters:
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACANSettings settings (125 * 1000) ;
+  ACAN2515Settings settings (125 * 1000) ;
   ...
   const ACANPrimaryFilter primaryFilters [] = {
     ACANPrimaryFilter (kData, kExtended, 0x123456), // Filter #0
@@ -1257,7 +1524,7 @@ void setup () {
     ACANSecondaryFilter (kData, kStandard, 0x234),    // Filter #1
     ACANSecondaryFilter (kRemote, kStandard, 0x542)   // Filter #2
   } ;
-  const uint32_t errorCode = ACAN::can0.begin (settings,
+  const uint32_t errorCode = can.begin (settings,
                                                primaryFilters, 
                                                1, // Primary filter array size
                                                secondaryFilters,
@@ -1265,7 +1532,7 @@ void setup () {
   ...
 void loop () {
   CANMessage message ;
-  if (ACAN::can0.receive (message)) { // Only frames that pass a filter are retrieved
+  if (can.receive (message)) { // Only frames that pass a filter are retrieved
     if (!message.rtr && message.ext && (message.id == 0x123456)) {
       handle_myMessage_0 (message) ; // Extended data frame, id is 0x123456
     }else if (!message.rtr && !message.ext && (message.id == 0x234)) {
@@ -1360,7 +1627,7 @@ The \texttt{receive} method retrieves a received message. When you define primar
 
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACANSettings settings (125 * 1000) ;
+  ACAN2515Settings settings (125 * 1000) ;
   ...
   const ACANPrimaryFilter primaryFilters [] = {
     ACANPrimaryFilter (kData, kExtended, 0x123456), // Filter #0
@@ -1369,7 +1636,7 @@ void setup () {
     ACANSecondaryFilter (kData, kStandard, 0x234),    // Filter #1
     ACANSecondaryFilter (kRemote, kStandard, 0x542)   // Filter #2
   } ;
-  const uint32_t errorCode = ACAN::can0.begin (settings,
+  const uint32_t errorCode = can.begin (settings,
                                                primaryFilters, 1,
                                                secondaryFilters, 2) ;
   ...
@@ -1377,7 +1644,7 @@ void setup () {
 
 void loop () {
   CANMessage message ;
-  if (ACAN::can0.receive (message)) { // Only frames that pass a filter are retrieved
+  if (can.receive (message)) { // Only frames that pass a filter are retrieved
     switch (message.idx) {
     case 0:
       handle_myMessage_0 (message) ; // Extended data frame, id is 0x123456
@@ -1421,7 +1688,7 @@ For enabling the use of the \texttt{dispatchReceivedMessage} method, you add to 
 
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACANSettings settings (125 * 1000) ;
+  ACAN2515Settings settings (125 * 1000) ;
   ...
   const ACANPrimaryFilter primaryFilters [] = {
     ACANPrimaryFilter (kData, kExtended, 0x123456, handle_myMessage_0)
@@ -1430,14 +1697,14 @@ void setup () {
     ACANSecondaryFilter (kData, kStandard, 0x234, handle_myMessage_1),
     ACANSecondaryFilter (kRemote, kStandard, 0x542, handle_myMessage_2)
   } ;
-  const uint32_t errorCode = ACAN::can0.begin (settings,
+  const uint32_t errorCode = can.begin (settings,
                                                primaryFilters, 1,
                                                secondaryFilters, 2) ;
   ...
 }
 
 void loop () {
-  ACAN::can0.dispatchReceivedMessage () ; // Do not use ACAN::can0.receive any more
+  can.dispatchReceivedMessage () ; // Do not use can.receive any more
   ...
 }
 \end{lstlisting}}
@@ -1451,7 +1718,7 @@ The \texttt{dispatchReceivedMessage} method handles one message at a time. More 
 So, the return value can used for emptying and dispatching all received messages:
 { \small\begin{lstlisting}[language=c++]
 void loop () {
-  while (ACAN::can0.dispatchReceivedMessage ()) {
+  while (can.dispatchReceivedMessage ()) {
   }
   ...
 }
@@ -1482,7 +1749,7 @@ void filterMatchFunction (const uint32_t inFilterIndex) {
 }
 
 void loop () {
-  ACAN::can0.dispatchReceivedMessage (filterMatchFunction) ;
+  can.dispatchReceivedMessage (filterMatchFunction) ;
   ...
 }
 \end{lstlisting}}
@@ -1496,7 +1763,7 @@ You can use this function for maintaining statitistics about receiver filter mat
 
 The \texttt{begin} method prototype is:
 { \small\begin{lstlisting}[language=c++]
-uint32_t ACAN::begin (const ACANSettings & inSettings,
+uint32_t ACAN::begin (const ACAN2515Settings & inSettings,
                       const ACANPrimaryFilter inPrimaryFilters [] = NULL,
                       const uint32_t inPrimaryFilterCount = 0,
                       const ACANSecondaryFilter inSecondaryFilters [] = NULL,
@@ -1507,7 +1774,7 @@ The four last arguments have default values.
 
 Omitting the last argument makes no secondary filter is defined:
 { \small\begin{lstlisting}[language=c++]
-const uint32_t errorCode = ACAN::can0.begin (settings,
+const uint32_t errorCode = can.begin (settings,
                                              primaryFilters, primaryFilterCount,
                                              secondaryFilters) ;
 \end{lstlisting}}
@@ -1516,16 +1783,16 @@ const uint32_t errorCode = ACAN::can0.begin (settings,
 
 Omitting the last two arguments makes no secondary filter is defined:
 { \small\begin{lstlisting}[language=c++]
-const uint32_t errorCode = ACAN::can0.begin (settings, primaryFilters, primaryFilterCount) ;
+const uint32_t errorCode = can.begin (settings, primaryFilters, primaryFilterCount) ;
 \end{lstlisting}}
 
 Omitting the last three or the last four arguments makes no primary and no secondary filter is defined -- so any (data / remote, standard / extended) frame is received:
 { \small\begin{lstlisting}[language=c++]
-const uint32_t errorCode = ACAN::can0.begin (settings, primaryFilters) ;
+const uint32_t errorCode = can.begin (settings, primaryFilters) ;
 \end{lstlisting}}
 
 { \small\begin{lstlisting}[language=c++]
-const uint32_t errorCode = ACAN::can0.begin (settings) ;
+const uint32_t errorCode = can.begin (settings) ;
 \end{lstlisting}}
 
 
@@ -1573,7 +1840,7 @@ public: static const uint32_t kNoAlternateRxPinForCan1                    = 1 <<
 
 For example, you can write:
 { \small\begin{lstlisting}[language=c++]
-const uint32_t errorCode = ACAN::can0.begin (settings,
+const uint32_t errorCode = can.begin (settings,
                                              primaryFilters, primaryFilterCount,
                                              secondaryFilters, secondaryFilterCount) ;
 if (errorCode != 0) {
@@ -1587,13 +1854,13 @@ if (errorCode != 0) {
 
 \subsubsectionLabel{CAN Bit setting too far from wished rate}{CANBitTooFarError}
 
-This error is raised when the \texttt{mBitConfigurationClosedToWishedRate} of the \texttt{settings} object is false. This means that the \texttt{ACANSettings} constructor cannot compute a CAN bit configuration close enough to the wished bit rate. When the \texttt{begin} is called with \texttt{settings.mBitConfigurationClosedToWishedRate} false, this error is reported. For example:
+This error is raised when the \texttt{mBitConfigurationClosedToWishedRate} of the \texttt{settings} object is false. This means that the \texttt{ACAN2515Settings} constructor cannot compute a CAN bit configuration close enough to the wished bit rate. When the \texttt{begin} is called with \texttt{settings.mBitConfigurationClosedToWishedRate} false, this error is reported. For example:
 
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACANSettings settings (1) ; // 1 bit/s !!!
+  ACAN2515Settings settings (1) ; // 1 bit/s !!!
   // Here, settings.mBitConfigurationClosedToWishedRate is false
-  const uint32_t errorCode = ACAN::can0.begin (settings) ;
+  const uint32_t errorCode = can.begin (settings) ;
   // Here, errorCode == ACAN::kCANBitConfigurationTooFarFromWishedBitRateErrorMask
 }
 \end{lstlisting}}
@@ -1632,13 +1899,13 @@ This error is raised when you have changed the CAN bit properties (\texttt{mBitR
 %\end{align*}
 %}
 %
-%does  of the \texttt{settings} object is false. This means that the \texttt{ACANSettings} constructor cannot compute a CAN bit  for the given bit rate. When the \texttt{begin} is called with \texttt{settings.mBitConfigurationClosedToWishedRate} false, this error is reported. For example:
+%does  of the \texttt{settings} object is false. This means that the \texttt{ACAN2515Settings} constructor cannot compute a CAN bit  for the given bit rate. When the \texttt{begin} is called with \texttt{settings.mBitConfigurationClosedToWishedRate} false, this error is reported. For example:
 %
 %{ \small\begin{lstlisting}[language=c++]
 %void setup () {
-%  ACANSettings settings (1) ; // 1 bit/s !!!
+%  ACAN2515Settings settings (1) ; // 1 bit/s !!!
 %  // here, settings.mBitConfigurationClosedToWishedRate is false
-%  const uint32_t errorCode = ACAN::can0.begin (settings) ;
+%  const uint32_t errorCode = can.begin (settings) ;
 %  // here, errorCode is equal to ACAN::kCANBitConfigurationTooFarFromWishedBitRateErrorMask, i.e. 1
 %}
 %\end{lstlisting}}
@@ -1688,18 +1955,18 @@ In the Teensy 3.6, \texttt{ACAN::can1} does not support alternate Rx pin.
 
 
 
-\sectionLabel{\texttt{ACANSettings} class reference}{ACanSettingsRef}
+\sectionLabel{\texttt{ACAN2515Settings} class reference}{ACAN2515SettingsRef}
 
-{\bf Note. } The \texttt{ACANSettings} class is not Arduino specific. You can compile it on your desktop computer with your favorite C++ compiler. 
+{\bf Note. } The \texttt{ACAN2515Settings} class is not Arduino specific. You can compile it on your desktop computer with your favorite C++ compiler. 
 
 
 
-\subsectionLabel{The \texttt{ACANSettings} constructor: computation of the CAN bit settings}{CANbitSettings}
+\subsectionLabel{The \texttt{ACAN2515Settings} constructor: computation of the CAN bit settings}{CANbitSettings}
 
-The constructor of the \texttt{ACANSettings} has one mandatory argument: the wished bit rate. It tries to compute the CAN bit settings for this bit rate. If it succeeds, the constructed object has its \texttt{mBitConfigurationClosedToWishedRate} property set to \texttt{true}, otherwise it is set to \texttt{false}. For example:
+The constructor of the \texttt{ACAN2515Settings} has one mandatory argument: the wished bit rate. It tries to compute the CAN bit settings for this bit rate. If it succeeds, the constructed object has its \texttt{mBitConfigurationClosedToWishedRate} property set to \texttt{true}, otherwise it is set to \texttt{false}. For example:
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACANSettings settings (1 * 1000 * 1000) ; // 1 Mbit/s
+  ACAN2515Settings settings (1 * 1000 * 1000) ; // 1 Mbit/s
   // Here, settings.mBitConfigurationClosedToWishedRate is true
   ...
 }
@@ -1709,7 +1976,7 @@ Of course, CAN bit computation always succeeds for classical bit rates: 1 Mbit/s
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACANSettings settings (842 * 1000) ; // 842 kbit/s
+  ACAN2515Settings settings (842 * 1000) ; // 842 kbit/s
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
   Serial.print ("actual bit rate: ") ;
@@ -1723,11 +1990,11 @@ void setup () {
 The actual bit rate is 842,105 bit/s, and its distance from wished bit rate is 124 ppm. "ppm" stands for "part-per-million", and $1~\texttt{ppm} = 10^{-6}$. In other words, $10,000~\texttt{ppm}=1\%$.
 
 
-By default, a wished bit rate is accepted if the distance from the computed actual bit rate is lower or equal to $1,000~\texttt{ppm} = 0.1~\%$. You can change this default value by adding your own value as second argument of \texttt{ACANSettings} constructor:
+By default, a wished bit rate is accepted if the distance from the computed actual bit rate is lower or equal to $1,000~\texttt{ppm} = 0.1~\%$. You can change this default value by adding your own value as second argument of \texttt{ACAN2515Settings} constructor:
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACANSettings settings (842 * 1000, 100) ; // 842 kbit/s, max distance is 100 ppm
+  ACAN2515Settings settings (842 * 1000, 100) ; // 842 kbit/s, max distance is 100 ppm
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 0 (--> is false)
   Serial.print ("actual bit rate: ") ;
@@ -1742,7 +2009,7 @@ The second argument does not change the CAN bit computation, it only changes the
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACANSettings settings (500 * 1000, 0) ; // 500 kbit/s, max distance is 0 ppm
+  ACAN2515Settings settings (500 * 1000, 0) ; // 500 kbit/s, max distance is 0 ppm
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
   Serial.print ("actual bit rate: ") ;
@@ -1763,7 +2030,7 @@ In any way, the bit rate computation always gives a consistent result, resulting
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACANSettings settings (440 * 1000) ; // 440 kbit/s 
+  ACAN2515Settings settings (440 * 1000) ; // 440 kbit/s 
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 0 (--> is false)
   Serial.print ("actual bit rate: ") ;
@@ -1779,7 +2046,7 @@ You can get the details of the CAN bit decomposition. For example:
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACANSettings settings (440 * 1000) ; // 440 kbit/s 
+  ACAN2515Settings settings (440 * 1000) ; // 440 kbit/s 
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 0 (--> is false)
   Serial.print ("actual bit rate: ") ;
@@ -1816,7 +2083,7 @@ You can change the property values for adapting to the particularities of your C
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACANSettings settings (500 * 1000) ; // 500 kbit/s
+  ACAN2515Settings settings (500 * 1000) ; // 500 kbit/s
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
   settings.mPhaseSegment1 ++ ; // 5 -> 6: safe, 1 <= PS1 <= 8
@@ -1878,7 +2145,7 @@ This method checks the CAN bit decomposition (given by \texttt{mBitRatePrescaler
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACANSettings settings (500 * 1000) ; // 500 kbit/s
+  ACAN2515Settings settings (500 * 1000) ; // 500 kbit/s
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
   settings.mPhaseSegment1 = 0 ; // Error, mPhaseSegment1 should be >= 1 (and <= 8)
@@ -1912,11 +2179,11 @@ The \texttt{CANBitSettingConsistency} method returns $0$ if CAN bit decompositio
     \zero~...  \zero &\X &\texttt{1}&\X &\X &\X &\X &\X &\X &\X &\X &\X & \texttt{mRJW} > 4\\
     \zero~...  \zero &\texttt{1}&\X &\X &\X &\X &\X &\X &\X &\X &\X &\X & \texttt{mRJW} > \texttt{mPhaseSegment2}\\
   \end{tabular}
-  \caption{The \texttt{ACANSettings::CANBitSettingConsistency} method error codes}
+  \caption{The \texttt{ACAN2515Settings::CANBitSettingConsistency} method error codes}
   \labelTableau{CANBitSettingConsistencyErrorCode}
 \end{table}
 
-The \texttt{ACANSettings} class defines static constant properties that can be used as mask error:
+The \texttt{ACAN2515Settings} class defines static constant properties that can be used as mask error:
 { \small\begin{lstlisting}[language=c++]
 public: static const uint32_t kBitRatePrescalerIsZero           = 1 <<  0 ;
 public: static const uint32_t kBitRatePrescalerIsGreaterThan256 = 1 <<  1 ;
@@ -1947,7 +2214,7 @@ The \texttt{actualBitRate} method returns the actual bit computed from \texttt{m
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACANSettings settings (440 * 1000) ; // 440 kbit/s 
+  ACAN2515Settings settings (440 * 1000) ; // 440 kbit/s 
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 0 (--> is false)
   Serial.print ("actual bit rate: ") ;
@@ -1976,7 +2243,7 @@ The \texttt{exactBitRate} method returns \texttt{true} if the actual bit rate is
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACANSettings settings (842 * 1000) ; // 842 kbit/s
+  ACAN2515Settings settings (842 * 1000) ; // 842 kbit/s
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
   Serial.print ("actual bit rate: ") ;
@@ -2004,7 +2271,7 @@ The \texttt{ppmFromWishedBitRate} method returns the distance from the actual bi
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACANSettings settings (842 * 1000) ; // 842 kbit/s
+  ACAN2515Settings settings (842 * 1000) ; // 842 kbit/s
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
   Serial.print ("actual bit rate: ") ;
@@ -2030,7 +2297,7 @@ The \texttt{samplePointFromBitStart} method returns the distance of sample point
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACANSettings settings (500 * 1000) ; // 500 kbit/s
+  ACAN2515Settings settings (500 * 1000) ; // 500 kbit/s
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
   Serial.print ("Sample point: ") ;
@@ -2046,9 +2313,9 @@ void setup () {
 
 
 
-\subsectionLabel{Properties of the \texttt{ACANSettings} class}{propertiesACanSettings}
+\subsectionLabel{Properties of the \texttt{ACAN2515Settings} class}{propertiesACAN2515Settings}
 
-All properties of the \texttt{ACANSettings} class are declared \texttt{public} and are initialized (\refTableau{tablePropertiesACanSettings}). The default values of properties from \texttt{mWhishedBitRate} until \texttt{mTripleSampling} corresponds to a CAN bit rate of 250,000 bit/s.
+All properties of the \texttt{ACAN2515Settings} class are declared \texttt{public} and are initialized (\refTableau{tablePropertiesACAN2515Settings}). The default values of properties from \texttt{mWhishedBitRate} until \texttt{mTripleSampling} corresponds to a CAN bit rate of 250,000 bit/s.
 
 \begin{table}[!ht]
   \small
@@ -2076,8 +2343,8 @@ All properties of the \texttt{ACANSettings} class are declared \texttt{public} a
     \texttt{mTxPinIsOpenCollector} & \texttt{bool} & \texttt{false} & See \refSubsubsectionPage{TxPinIsOpenCollector} \\
     \texttt{mRxPinHasInternalPullUp} & \texttt{bool} & \texttt{false} & See \refSubsubsectionPage{RxPinHasInternalPullUp} \\
    \end{tabular}
-  \caption{Properties of the \texttt{ACANSettings} class}
-  \labelTableau{tablePropertiesACanSettings}
+  \caption{Properties of the \texttt{ACAN2515Settings} class}
+  \labelTableau{tablePropertiesACAN2515Settings}
 \end{table}
 
 

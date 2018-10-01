@@ -9,13 +9,13 @@
 //  As hardware SPI is used, you should select pins that support SPI functions.
 //  This sketch is designed for a Teensy 3.5, using SPI0 (named SPI)
 //  But standard Teensy 3.5 SPI0 pins are not used
-//    CLK input of MCP2515 is pin #27
+//    SCK input of MCP2515 is pin #27
 //    SI input of MCP2515 is pin #28
 //    SO output of MCP2515 is pin #39
 //  User code should configure MCP2515_IRQ pin as external interrupt
 //——————————————————————————————————————————————————————————————————————————————
 
-static const byte MCP2515_CLK = 27 ; // CLK input of MCP2515 
+static const byte MCP2515_SCK = 27 ; // SCK input of MCP2515 
 static const byte MCP2515_SI  = 28 ; // SI input of MCP2515  
 static const byte MCP2515_SO  = 39 ; // SO output of MCP2515 
 
@@ -61,13 +61,13 @@ void setup () {
   Serial.print (" for MISO: ") ;
   Serial.println (SPI.pinIsMISO (MCP2515_SO) ? "yes" : "NO!!!") ;
   Serial.print ("Using pin #") ;
-  Serial.print (MCP2515_CLK) ;
-  Serial.print (" for CLK: ") ;
-  Serial.println (SPI.pinIsSCK (MCP2515_CLK) ? "yes" : "NO!!!") ;
+  Serial.print (MCP2515_SCK) ;
+  Serial.print (" for SCK: ") ;
+  Serial.println (SPI.pinIsSCK (MCP2515_SCK) ? "yes" : "NO!!!") ;
   SPI.setMOSI (MCP2515_SI) ;
   SPI.setMISO (MCP2515_SO) ;
-  SPI.setSCK (MCP2515_CLK) ;
-//--- Configure MCP2515_IRQ as external input
+  SPI.setSCK (MCP2515_SCK) ;
+//--- Configure MCP2515_IRQ as external interrupt
   pinMode (MCP2515_IRQ, INPUT_PULLUP) ;
   attachInterrupt (digitalPinToInterrupt (MCP2515_IRQ), canISR, LOW) ;
 //--- Configure ACAN2515

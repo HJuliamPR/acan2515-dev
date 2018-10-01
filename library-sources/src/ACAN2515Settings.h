@@ -37,6 +37,20 @@ class ACANSettings2515 {
   public: bool mBitSettingOk = true ; // The above configuration is correct
 
 
+//--- One shot mode
+//      true --> Enabled; messages will only attempt to transmit one time
+//      false --> Disabled; messages will reattempt transmission if required
+  public: bool mOneShotModeEnabled = false ;
+
+
+//--- MCP2515 TXBi priorities
+//    bits 7-6: unused
+//    bits 5-4: TXB2 priority
+//    bits 3-2: TXB1 priority
+//    bits 1-0: TXB0 priority
+  public: uint8_t mTXBPriority = 0 ;
+
+
 //--- Requested mode
   public: ACAN2515RequestedMode mRequestedMode = NormalMode ;
 
@@ -45,18 +59,15 @@ class ACANSettings2515 {
   public: ACAN2515SignalOnCLKOUT_SOF_pin mSignalOnCLKOUT_SOF_pin = CLOCK ;
 
 
-//--- One shot mode
-//      true --> Enabled; messages will only attempt to transmit one time
-//      false --> Disabled; messages will reattempt transmission if required
-  public: bool mOneShotModeEnabled = false ;
-
 //--- Receive buffer size
   public: uint16_t mReceiveBufferSize = 32 ;
+
 
 //--- Transmit buffer sizes
   public: uint16_t mTransmitBuffer0Size = 16 ;
   public: uint16_t mTransmitBuffer1Size = 0 ;
   public: uint16_t mTransmitBuffer2Size = 0 ;
+
 
 //--- Compute actual bit rate
   public: uint32_t actualBitRate (void) const ;

@@ -35,6 +35,9 @@ static const uint8_t CNF3_REGISTER      = 0x28 ;
 static const uint8_t CNF2_REGISTER      = 0x29 ;
 static const uint8_t CNF1_REGISTER      = 0x2A ;
 static const uint8_t CANINTF_REGISTER   = 0x2C ;
+static const uint8_t TXB0CTRL_REGISTER  = 0x30 ;
+static const uint8_t TXB1CTRL_REGISTER  = 0x40 ;
+static const uint8_t TXB2CTRL_REGISTER  = 0x50 ;
 static const uint8_t RXB0CTRL_REGISTER  = 0x60 ;
 static const uint8_t RXB1CTRL_REGISTER  = 0x70 ;
 
@@ -93,7 +96,7 @@ uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings) {
 
 bool ACAN2515::tryToSend (const CANMessage & inMessage) {
 //--- Find send buffer index
-  uint8_t idx = inMessage.idx & 0x3F ; // Only retain bits 5:0 for selecting transmit buffer
+  uint8_t idx = inMessage.idx ;
   if (idx > 2) {
     idx = 0 ;
   }
@@ -255,6 +258,11 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings) 
     case ACAN2515SignalOnCLKOUT_SOF_pin::HiZ :
       break ;
     }
+  //--- Set TXBi priorities
+     write2515Register (TXB0CTRL_REGISTER, inSettings.mTXBPriority & 3) ;
+     write2515Register (TXB1CTRL_REGISTER, (inSettings.mTXBPriority >> 2) & 3) ;
+     write2515Register (TXB2CTRL_REGISTER, (inSettings.mTXBPriority >> 4) & 3) ;
+  //--- Request mode
     switch (inSettings.mRequestedMode) {
     case ACAN2515RequestedMode::NormalMode :
       break ;
@@ -407,7 +415,10 @@ void ACAN2515::internalSendMessage (const CANMessage & inFrame, const uint8_t in
     mSPI->sendByte (0x00) ; // any value --> EID0
   }
 //--- DLC
-  uint8_t v = inFrame.len & 0x0F ;
+  uint8_t v = inFrame.len ;
+  if (v > 8) {
+    v = 8 ;
+  }
   if (inFrame.rtr) {
     v |= 0x40 ;
   }

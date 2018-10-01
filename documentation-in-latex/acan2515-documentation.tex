@@ -695,7 +695,7 @@ If your microcontroller provides \texttt{SPI2}, \texttt{SPI3}, … you can selec
 ACAN2515 can (MCP2515_CS, SPI2) ;
 \end{lstlisting}}
 
-The \texttt{begin} function of \texttt{ACAN2515} library configures the selected SPI with a speed of 10 Mbit/s.
+The \texttt{begin} function of \texttt{ACAN2515} library configures the selected SPI with a frequency of 10 Mbit/s (the maximum frequency supported by the \texttt{MCP2515}). More precisely, the SPI library of your microcontroller may adopt a frequency lower than 10 Mbit/s; for example, the maximum frequency of the Arduino Uno SPI is 8 Mbit/s.
 
 \subsubsection{Using alternate pins on Teensy 3.x}
 
@@ -900,13 +900,7 @@ The \texttt{ACAN2515} driver define three transmit buffers, each of them corresp
 
 You call the \texttt{tryToSend} method for sending a message in the CAN network. Note this function returns before the message is actually sent; this function only appends the message to a transmit buffer.
 
-The \texttt{idx} field of the message is an 8-bit unsigned integer:
-\begin{itemize}
-  \item the bits 5 to 0 define the transmit buffer (0 $\rightarrow$ transmit buffer 0, 1 $\rightarrow$ transmit buffer 1, 2 $\rightarrow$ transmit buffer 2, any other value $\rightarrow$ transmit buffer 0);
-  \item the bits 7 and 6 define the priority of the \texttt{TXBi} corresponding buffer\footnote{See Microchip document \texttt{DS20001801H}, section 3.2 page 15.}.
-\end{itemize}
-
-The default value of the \texttt{idx} field is zero: the message is sent throught \texttt{TXB0} with a priority equal to 0.
+The \texttt{idx} field of the message specifies the transmit buffer (0 $\rightarrow$ transmit buffer 0, 1 $\rightarrow$ transmit buffer 1, 2 $\rightarrow$ transmit buffer 2, any other value $\rightarrow$ transmit buffer 0). The default value of the \texttt{idx} field is zero: the message is sent throught \texttt{TXB0}.
 
 The method \texttt{tryToSend} returns:
 \begin{itemize}
@@ -1013,48 +1007,11 @@ So, when \texttt{transmitBufferPeakCount} returns a value lower or equal to \tex
 
 
 
-%\subsection{One or two hardware sending mailboxes}
-%
-%The FlexCAN module of the Teensy micro-controllers implements 16 hardware \emph{mailboxes}. The \emph{mailboxes} are used for sending or receiving messages. 
-%
-%By default, the \texttt{ACAN} driver uses one \emph{mailbox} for sending data frames. This ensures that data frames are sent sequentially.
-%
-%Setting \texttt{settings.doubleTxMB} to \texttt{true} enables the driver to use two \emph{mailboxes}.
-%
-%{ \small\begin{lstlisting}[language=c++]
-%ACAN2515Settings settings (125 * 1000) ;
-%settings.doubleTxMB = true ;
-%const uint32_t errorCode = can.begin (settings) ;
-%...
-%\end{lstlisting}}
 
 
 
 
 
-
-
-
-
-
-
-\sectionLabel{Sending remote frames}{sendingRemoteFrames}
-
-{\bf Note. } This section applies only to {\bf remote} frames. For sending data frames, see \refSectionPage{sendingFrames}.
-
-The hardware design of the FlexCAN module makes sending remote frames different from data frames.
-
-However, for sending remote frames, you also invoke the \texttt{tryToSend} method. This method understands if a remote frame should be sent, the \texttt{rtr} property of its argument is set (it is cleared by default, denoting a data frame).
-
-{ \small\begin{lstlisting}[language=c++]
-CanMessage message ;
-message.rtr = true ; // Remote frame
-... 
-const bool sent = can.tryToSend (message) ;
-...
-\end{lstlisting}}
-
-The FlexCAN module embedded in Teensy 3.x microcontrollers implements 16 \emph{mailboxes}, for sending and receiving CAN frames. Following the \texttt{settings.mConfiguration}, it allocates 7, 5, 3 or 1 MBs for sending remote frames, as indicating by the \refTableauPage{configFlexCAN}. By default, \texttt{settings.mConfiguration} is set to \texttt{k12\_12\_Filters}, as remote frames are rarely needed.
 
 
 
@@ -1072,7 +1029,7 @@ This is a basic example:
 
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACAN2515Settings settings (125 * 1000) ;
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
   ...
   const uint32_t errorCode = can.begin (settings) ; // No receive filter
   ...

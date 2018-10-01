@@ -6,7 +6,6 @@
 //——————————————————————————————————————————————————————————————————————————————
 
 #include <ACAN2515.h>
-#include <SPI.h>
 
 //——————————————————————————————————————————————————————————————————————————————
 //   MCP2515 COMMANDS
@@ -52,7 +51,7 @@ mSPI (NULL),
 mReceiveBuffer (),
 mTransmitBuffer (),
 mTXBIsFree () {
-  mSPI = new ACAN2515HardSPI (inSPI, 10 * 1000 * 1000) ; // 10 MHz
+  mSPI = new ACANHardSPI (inSPI, 10 * 1000 * 1000) ; // 10 MHz
 }
 
 //——————————————————————————————————————————————————————————————————————————————
@@ -68,7 +67,7 @@ mSPI (NULL),
 mReceiveBuffer (),
 mTransmitBuffer (),
 mTXBIsFree () {
-  mSPI = new ACAN2515SoftSPI (inCLK, inSI, inSO) ;
+  mSPI = new ACANSoftSPI (inCLK, inSI, inSO) ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————
@@ -503,100 +502,6 @@ void ACAN2515::bitModify2515Register (const uint8_t inRegister,
   mSPI->sendByte (inData) ;
   delayMicroseconds (1) ;
   digitalWrite (mCS,  HIGH) ;
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-//  SOFTWARE SPI FUNCTIONS
-//——————————————————————————————————————————————————————————————————————————————
-
-ACAN2515SoftSPI::ACAN2515SoftSPI (const uint8_t inCLK, // CLK input of MCP2515
-                                  const uint8_t inSI,  // SI input of MCP2515
-                                  const uint8_t inSO) :  // SO output of MCP2515)
-ACAN2515AbstractSPI (),
-mCLK (inCLK),
-mSI (inSI),
-mSO (inSO) {
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-
-void ACAN2515SoftSPI::configure (void) {
-  pinMode (mCLK, OUTPUT) ;
-  pinMode (mSI,  OUTPUT) ;
-  pinMode (mSO,  INPUT_PULLUP) ;
-  digitalWrite (mCLK, LOW) ;  // CLK is low outside a command
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-
-void ACAN2515SoftSPI::sendByte (const uint8_t inByte) {
-  uint8_t v = inByte ;
-  for (int i=0 ; i<8 ; i++) {
-    delayMicroseconds (1) ;
-    digitalWrite (mSI, (v & 0x80) != 0) ;
-    delayMicroseconds (1) ;
-    digitalWrite (mCLK, HIGH) ;
-    delayMicroseconds (1) ;
-    digitalWrite (mCLK, LOW) ;
-    v <<= 1 ;
-  }
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-
-uint8_t ACAN2515SoftSPI::readByte (void) {
-  uint8_t readValue = 0 ;
-  for (int i=0 ; i<8 ; i++) {
-    delayMicroseconds (1) ;
-    readValue <<= 1 ;
-    readValue |= digitalRead (mSO) ;
-    delayMicroseconds (1) ;
-    digitalWrite (mCLK, HIGH) ;
-    delayMicroseconds (1) ;
-    digitalWrite (mCLK, LOW) ;
-  }
-  return readValue ;
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-//  HARDWARE SPI FUNCTIONS
-//——————————————————————————————————————————————————————————————————————————————
-
-ACAN2515HardSPI::ACAN2515HardSPI (SPIClass & inSPI, // Hardware SPI object
-                                  const uint32_t inSPISpeed) :  // in byte / s
-ACAN2515AbstractSPI (),
-mHardSPI (& inSPI),
-mSPISettings (inSPISpeed, MSBFIRST, SPI_MODE0) {
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-
-void ACAN2515HardSPI::configure (void) {
-  mHardSPI->begin () ;
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-
-void ACAN2515HardSPI::beginTransaction (void) {
-  mHardSPI->beginTransaction (mSPISettings) ;
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-
-void ACAN2515HardSPI::sendByte (const uint8_t inByte) {
-  mHardSPI->transfer (inByte) ;
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-
-uint8_t ACAN2515HardSPI::readByte (void) {
-  return mHardSPI->transfer (0) ;
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-
-void ACAN2515HardSPI::endTransaction (void) {
-  mHardSPI->endTransaction () ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————

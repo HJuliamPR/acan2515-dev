@@ -16,7 +16,14 @@
 
 class ACANBuffer {
 //--- Default constructor
-  public: ACANBuffer (void) ;
+  public: ACANBuffer (void)  :
+  mBuffer (NULL),
+  mSize (0),
+  mReadIndex (0),
+  mWriteIndex (0),
+  mCount (0),
+  mPeakCount (0) {
+  }
 
 //--- Properties
   private: CANMessage * mBuffer ;
@@ -32,9 +39,43 @@ class ACANBuffer {
   public: inline uint32_t peakCount (void) const { return mPeakCount ; }
 
 //--- Public functions
-  public: void initWithSize (const uint32_t inSize) ;
-  public: bool append (const CANMessage & inMessage) ;
-  public: bool remove (CANMessage & outMessage) ;
+  public: void initWithSize (const uint32_t inSize) {
+    mBuffer = new CANMessage [inSize] ;
+    mSize = inSize ;
+    mReadIndex = 0 ;
+    mWriteIndex = 0 ;
+    mCount = 0 ;
+    mPeakCount = 0 ;
+  }
+
+  public: bool append (const CANMessage & inMessage) {
+    const bool ok = mCount < mSize ;
+    if (ok) {
+      mBuffer [mWriteIndex] = inMessage ;
+      mWriteIndex += 1 ;
+      if (mWriteIndex == mSize) {
+        mWriteIndex = 0 ;
+      }
+      mCount ++ ;
+      if (mPeakCount < mCount) {
+        mPeakCount = mCount ;
+      }
+    }
+    return ok ;
+  }
+
+  public: bool remove (CANMessage & outMessage) {
+    const bool ok = mCount > 0 ;
+    if (ok) {
+      outMessage = mBuffer [mReadIndex] ;
+      mCount -= 1 ;
+      mReadIndex += 1 ;
+      if (mReadIndex == mSize) {
+        mReadIndex = 0 ;
+      }
+    }
+    return ok ;
+  }
 
 //--- No Copy
   private: ACANBuffer (const ACANBuffer &) ;

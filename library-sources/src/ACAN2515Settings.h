@@ -19,6 +19,25 @@ typedef enum {CLOCK, CLOCK2, CLOCK4, CLOCK8, SOF, HiZ} ACAN2515SignalOnCLKOUT_SO
 
 //——————————————————————————————————————————————————————————————————————————————
 
+class ACAN2515Mask {
+
+//--- Default constructor
+  public: ACAN2515Mask (void) :
+  mSIDH (0),
+  mSIDL (0),
+  mEID8 (0),
+  mEID0 (0) {
+  }
+
+//--- Properties
+  public: uint8_t mSIDH ;
+  public: uint8_t mSIDL ;
+  public: uint8_t mEID8 ;
+  public: uint8_t mEID0 ;
+} ;
+
+//——————————————————————————————————————————————————————————————————————————————
+
 class ACANSettings2515 {
 //--- Constructor for a given baud rate
   public: explicit ACANSettings2515 (const uint32_t inQuartzFrequency, // In Hertz
@@ -59,6 +78,12 @@ class ACANSettings2515 {
   public: ACAN2515SignalOnCLKOUT_SOF_pin mSignalOnCLKOUT_SOF_pin = CLOCK ;
 
 
+//--- Rollover Enable Bit (is set to the BUKT bit of the RXB0CTRL register)
+//       true  --> RXB0 message will roll over and be written to RXB1 if RXB0 is full
+//       false --> Rollover is disabled
+  public : bool mRolloverEnable = false ;
+
+
 //--- Receive buffer size
   public: uint16_t mReceiveBufferSize = 32 ;
 
@@ -68,6 +93,27 @@ class ACANSettings2515 {
   public: uint16_t mTransmitBuffer1Size = 0 ;
   public: uint16_t mTransmitBuffer2Size = 0 ;
 
+
+//--- Receive acceptance masks
+  public: ACAN2515Mask mRXM0 ;
+  public: ACAN2515Mask mRXM1 ;
+  public: static ACAN2515Mask standard2515Mask (const uint16_t inIdentifier,
+                                                const uint8_t inByte0,
+                                                const uint8_t inByte1) ;
+  public: static ACAN2515Mask extended2515Mask (const uint32_t inIdentifier) ;
+
+
+//--- Receive acceptance filters
+  public: ACAN2515Mask mRXF0 ;
+  public: ACAN2515Mask mRXF1 ;
+  public: ACAN2515Mask mRXF2 ;
+  public: ACAN2515Mask mRXF3 ;
+  public: ACAN2515Mask mRXF4 ;
+  public: ACAN2515Mask mRXF5 ;
+  public: static ACAN2515Mask standard2515Filter (const uint16_t inIdentifier,
+                                                  const uint8_t inByte0,
+                                                  const uint8_t inByte1) ;
+  public: static ACAN2515Mask extended2515Filter (const uint32_t inIdentifier) ;
 
 //--- Compute actual bit rate
   public: uint32_t actualBitRate (void) const ;

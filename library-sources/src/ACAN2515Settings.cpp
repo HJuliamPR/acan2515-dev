@@ -143,3 +143,50 @@ uint32_t ACANSettings2515::CANBitSettingConsistency (void) const {
 
 //——————————————————————————————————————————————————————————————————————————————
 
+ACAN2515Mask ACANSettings2515::standard2515Mask (const uint16_t inIdentifier,
+                                                 const uint8_t inByte0,
+                                                 const uint8_t inByte1) {
+  ACAN2515Mask result ;
+  result.mSIDH = (uint8_t) (inIdentifier >> 3) ;
+  result.mSIDL = (uint8_t) (inIdentifier << 5) ;
+  result.mEID8 = inByte0 ;
+  result.mEID0 = inByte1 ;
+  return result ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————
+
+ACAN2515Mask ACANSettings2515::extended2515Mask (const uint32_t inIdentifier) {
+  ACAN2515Mask result ;
+  result.mSIDH = (uint8_t) (inIdentifier << 3) ;
+  result.mSIDL = (uint8_t) (((inIdentifier << 16) & 0x03) | ((inIdentifier >> 5) & 0xE0)) ;
+  result.mEID8 = (uint8_t) (inIdentifier >> 8) ;
+  result.mEID0 = (uint8_t) inIdentifier ;
+  return result ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————
+
+ACAN2515Mask ACANSettings2515::standard2515Filter (const uint16_t inIdentifier,
+                                                   const uint8_t inByte0,
+                                                   const uint8_t inByte1) {
+  ACAN2515Mask result ;
+  result.mSIDH = (uint8_t) (inIdentifier >> 3) ;
+  result.mSIDL = (uint8_t) (inIdentifier << 5) ;
+  result.mEID8 = inByte0 ;
+  result.mEID0 = inByte1 ;
+  return result ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————
+
+ACAN2515Mask ACANSettings2515::extended2515Filter (const uint32_t inIdentifier) {
+  ACAN2515Mask result ;
+  result.mSIDH = (uint8_t) (inIdentifier << 3) ;
+  result.mSIDL = (uint8_t) (((inIdentifier << 16) & 0x03) | ((inIdentifier >> 5) & 0xE0)) | 0x08 ;
+  result.mEID8 = (uint8_t) (inIdentifier >> 8) ;
+  result.mEID0 = (uint8_t) inIdentifier ;
+  return result ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————

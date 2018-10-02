@@ -76,6 +76,7 @@ class ACAN2515 {
   private: uint8_t read2515Status (void) ;
   private: uint8_t read2515RxStatus (void) ;
   private: void bitModify2515Register (const uint8_t inRegister, const uint8_t inMask, const uint8_t inData) ;
+  private: void setupMaskRegister (const ACAN2515Mask inMask, const uint8_t inRegister) ;
 
 //--- No Copy
   private: ACAN2515 (const ACAN2515 &) ;

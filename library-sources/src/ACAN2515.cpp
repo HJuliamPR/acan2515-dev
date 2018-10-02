@@ -15,22 +15,30 @@
 static const uint8_t RESET_COMMAND = 0xC0 ;
 static const uint8_t WRITE_COMMAND = 0x02 ;
 static const uint8_t READ_COMMAND  = 0x03 ;
-static const uint8_t BIT_MODIFY_COMMAND  = 0x05 ;
-static const uint8_t LOAD_TX_BUFFER_COMMAND = 0x40 ;
-static const uint8_t REQUEST_TO_SEND_COMMAND = 0x80 ;
+static const uint8_t BIT_MODIFY_COMMAND         = 0x05 ;
+static const uint8_t LOAD_TX_BUFFER_COMMAND     = 0x40 ;
+static const uint8_t REQUEST_TO_SEND_COMMAND    = 0x80 ;
 static const uint8_t READ_FROM_RXB0SIDH_COMMAND = 0x90 ;
 static const uint8_t READ_FROM_RXB1SIDH_COMMAND = 0x94 ;
-static const uint8_t READ_STATUS_COMMAND = 0xA0 ;
-static const uint8_t RX_STATUS_COMMAND = 0xB0 ;
+static const uint8_t READ_STATUS_COMMAND        = 0xA0 ;
+static const uint8_t RX_STATUS_COMMAND          = 0xB0 ;
 
 //——————————————————————————————————————————————————————————————————————————————
 //   MCP2515 REGISTERS
 //——————————————————————————————————————————————————————————————————————————————
 
+static const uint8_t RXF0SIDH_REGISTER  = 0x00 ;
+static const uint8_t RXF1SIDH_REGISTER  = 0x04 ;
+static const uint8_t RXF2SIDH_REGISTER  = 0x08 ;
 static const uint8_t BFPCTRL_REGISTER   = 0x0C ;
 static const uint8_t TXRTSCTRL_REGISTER = 0x0D ;
 static const uint8_t CANSTAT_REGISTER   = 0x0E ;
 static const uint8_t CANCTRL_REGISTER   = 0x0F ;
+static const uint8_t RXF3SIDH_REGISTER  = 0x10 ;
+static const uint8_t RXF4SIDH_REGISTER  = 0x14 ;
+static const uint8_t RXF5SIDH_REGISTER  = 0x18 ;
+static const uint8_t RXM0SIDH_REGISTER  = 0x20 ;
+static const uint8_t RXM1SIDH_REGISTER  = 0x24 ;
 static const uint8_t CNF3_REGISTER      = 0x28 ;
 static const uint8_t CNF2_REGISTER      = 0x29 ;
 static const uint8_t CNF1_REGISTER      = 0x2A ;
@@ -228,46 +236,63 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings) 
     write2515Register (BFPCTRL_REGISTER, 0) ;
   //----------------------------------- Set TXnRTS as inputs
     write2515Register (TXRTSCTRL_REGISTER, 0);
-  //----------------------------------- Turn off filters => receive any message
-    write2515Register (RXB0CTRL_REGISTER, 0x60) ;
-    write2515Register (RXB1CTRL_REGISTER, 0x60) ;
+  //----------------------------------- RXBnCTRL
+    write2515Register (RXB0CTRL_REGISTER, ((uint8_t) inSettings.mRolloverEnable) << 2) ;
+    write2515Register (RXB1CTRL_REGISTER, 0x00) ;
+  //----------------------------------- Setup mask registers
+    setupMaskRegister (inSettings.mRXM0, RXM0SIDH_REGISTER) ;
+    setupMaskRegister (inSettings.mRXM1, RXM1SIDH_REGISTER) ;
+    setupMaskRegister (inSettings.mRXF0, RXF0SIDH_REGISTER) ;
+    setupMaskRegister (inSettings.mRXF1, RXF1SIDH_REGISTER) ;
+    setupMaskRegister (inSettings.mRXF2, RXF2SIDH_REGISTER) ;
+    setupMaskRegister (inSettings.mRXF3, RXF3SIDH_REGISTER) ;
+    setupMaskRegister (inSettings.mRXF4, RXF4SIDH_REGISTER) ;
+    setupMaskRegister (inSettings.mRXF5, RXF5SIDH_REGISTER) ;
+  //----------------------------------- Set TXBi priorities
+     write2515Register (TXB0CTRL_REGISTER, inSettings.mTXBPriority & 3) ;
+     write2515Register (TXB1CTRL_REGISTER, (inSettings.mTXBPriority >> 2) & 3) ;
+     write2515Register (TXB2CTRL_REGISTER, (inSettings.mTXBPriority >> 4) & 3) ;
   //----------------------------------- Reset device to requested mode
-    uint8_t mode = inSettings.mOneShotModeEnabled ? (1 << 3) : 0 ; ;
+    uint8_t canctrl = inSettings.mOneShotModeEnabled ? (1 << 3) : 0 ;
     switch (inSettings.mSignalOnCLKOUT_SOF_pin) {
     case ACAN2515SignalOnCLKOUT_SOF_pin::CLOCK :
-      mode = 0x04 | 0x00 ;
+      canctrl = 0x04 | 0x00 ;
       break ;
     case ACAN2515SignalOnCLKOUT_SOF_pin::CLOCK2 :
-      mode |= 0x04 | 0x01 ;
+      canctrl |= 0x04 | 0x01 ;
       break ;
     case ACAN2515SignalOnCLKOUT_SOF_pin::CLOCK4 :
-      mode |= 0x04 | 0x02 ;
+      canctrl |= 0x04 | 0x02 ;
       break ;
     case ACAN2515SignalOnCLKOUT_SOF_pin::CLOCK8 :
-      mode |= 0x04 | 0x03 ;
+      canctrl |= 0x04 | 0x03 ;
       break ;
     case ACAN2515SignalOnCLKOUT_SOF_pin::SOF :
-      mode |= 0x04 ;
+      canctrl |= 0x04 ;
       break ;
     case ACAN2515SignalOnCLKOUT_SOF_pin::HiZ :
       break ;
     }
-  //--- Set TXBi priorities
-     write2515Register (TXB0CTRL_REGISTER, inSettings.mTXBPriority & 3) ;
-     write2515Register (TXB1CTRL_REGISTER, (inSettings.mTXBPriority >> 2) & 3) ;
-     write2515Register (TXB2CTRL_REGISTER, (inSettings.mTXBPriority >> 4) & 3) ;
-  //--- Request mode
+  //--- Requested mode
+    uint8_t requestedMode = 0 ;
     switch (inSettings.mRequestedMode) {
     case ACAN2515RequestedMode::NormalMode :
       break ;
     case ACAN2515RequestedMode::ListenOnlyMode :
-      mode |= 0x03 << 5 ;
+      requestedMode = 0x03 << 5 ;
       break ;
     case ACAN2515RequestedMode::LoopBackMode :
-      mode |= 0x02 << 5 ;
+      requestedMode = 0x02 << 5 ;
       break ;
     }
-    write2515Register (CANCTRL_REGISTER, mode) ;
+  //--- Request mode
+    write2515Register (CANCTRL_REGISTER, canctrl | requestedMode) ;
+  //--- Wait until requested mode is reached
+    bool wait = true ;
+    while (wait) {
+      const uint8_t actualMode = read2515Register (CANSTAT_REGISTER) & 0xE0 ;
+      wait = actualMode != requestedMode ;
+    }
   }
 //-----------------------------------
   return errorCode ;
@@ -309,37 +334,38 @@ void ACAN2515::isr (void) {
 // This function is called by ISR when a MCP2515 receive buffer becomes full
 
 void ACAN2515::handleRXBInterrupt (void) {
-//--- Receive message ?
-  const uint8_t rxStatus = read2515RxStatus () ; // Bit 0: message in RXB0, bit 1: message in RXB1
+  const uint8_t rxStatus = read2515RxStatus () ; // Bit 6: message in RXB0, bit 7: message in RXB1
   const bool received = (rxStatus & 0xC0) != 0 ;
   if (received) { // Message in RXB0 and / or RXB1
-    CANMessage message ;
     const bool accessRXB0 = (rxStatus & 0x40) != 0 ;
+    CANMessage message ;
     message.rtr = (rxStatus & 0x10) != 0 ;
     message.ext = (rxStatus & 0x08) != 0 ;
+    message.idx = rxStatus & 0x07 ;
     mSPI->select () ;
     mSPI->sendByte (accessRXB0 ? READ_FROM_RXB0SIDH_COMMAND : READ_FROM_RXB1SIDH_COMMAND) ;
   //--- SIDH
-    message.id = mSPI->readByte () ; // Read SIDH
+    message.id = mSPI->readByte () ;
   //--- SIDL
-    const uint8_t sidl = mSPI->readByte () ; // Read SIDL
+    const uint32_t sidl = mSPI->readByte () ;
     message.id <<= 3 ;
     message.id |= sidl >> 5 ;
-    message.ext = (sidl & 0x08) != 0 ;
   //--- EID8
-    const uint8_t eid8 = mSPI->readByte () ; // Read EID8
+    const uint32_t eid8 = mSPI->readByte () ;
     if (message.ext) {
+      message.id <<= 2 ;
+      message.id |= (sidl & 0x03) ;
       message.id <<= 8 ;
       message.id |= eid8 ;
     }
   //--- EID0
-    const uint8_t eid0 = mSPI->readByte () ; // Read EID0
+    const uint32_t eid0 = mSPI->readByte () ;
     if (message.ext) {
       message.id <<= 8 ;
       message.id |= eid0 ;
     }
   //--- DLC
-    const uint8_t dlc = mSPI->readByte () ; // Read DLC
+    const uint8_t dlc = mSPI->readByte () ;
     message.len = dlc & 0x0F ;
   //--- Read data
     for (int i=0 ; i<message.len ; i++) {
@@ -484,3 +510,17 @@ void ACAN2515::bitModify2515Register (const uint8_t inRegister,
 }
 
 //——————————————————————————————————————————————————————————————————————————————
+
+void ACAN2515::setupMaskRegister (const ACAN2515Mask inMask, const uint8_t inRegister) {
+  mSPI->select () ;
+  mSPI->sendByte (WRITE_COMMAND) ;
+  mSPI->sendByte (inRegister) ;
+  mSPI->sendByte (inMask.mSIDH) ;
+  mSPI->sendByte (inMask.mSIDL) ;
+  mSPI->sendByte (inMask.mEID8) ;
+  mSPI->sendByte (inMask.mEID0) ;
+  mSPI->unselect () ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————
+

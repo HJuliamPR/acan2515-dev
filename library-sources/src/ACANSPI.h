@@ -3,6 +3,7 @@
 // by Pierre Molinaro
 // https://github.com/pierremolinaro/acan2515
 //
+// See https://dorkbotpdx.org/blog/paul/spi_transactions_in_arduino
 //——————————————————————————————————————————————————————————————————————————————
 
 #ifndef ACAN_SPI_CLASSES_DEFINED

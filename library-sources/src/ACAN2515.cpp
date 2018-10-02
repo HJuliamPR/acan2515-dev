@@ -6,6 +6,7 @@
 //——————————————————————————————————————————————————————————————————————————————
 
 #include <ACAN2515.h>
+#include <ACANSPI.h>
 
 //——————————————————————————————————————————————————————————————————————————————
 //   MCP2515 COMMANDS
@@ -46,12 +47,11 @@ static const uint8_t RXB1CTRL_REGISTER  = 0x70 ;
 
 ACAN2515::ACAN2515 (const uint8_t inCS,  // CS input of MCP2515
                     SPIClass & inSPI) : // Hardware SPI object
-mCS (inCS),
 mSPI (NULL),
 mReceiveBuffer (),
 mTransmitBuffer (),
 mTXBIsFree () {
-  mSPI = new ACANHardSPI (inSPI, 10 * 1000 * 1000) ; // 10 MHz
+  mSPI = new ACANHardSPI (inCS, inSPI, 10 * 1000 * 1000) ; // 10 MHz
 }
 
 //——————————————————————————————————————————————————————————————————————————————
@@ -62,12 +62,11 @@ ACAN2515::ACAN2515 (const uint8_t inCS,
                     const uint8_t inCLK,
                     const uint8_t inSI,
                     const uint8_t inSO) :
-mCS (inCS),
 mSPI (NULL),
 mReceiveBuffer (),
 mTransmitBuffer (),
 mTXBIsFree () {
-  mSPI = new ACANSoftSPI (inCLK, inSI, inSO) ;
+  mSPI = new ACANSoftSPI (inCS, inCLK, inSI, inSO) ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————
@@ -77,8 +76,6 @@ mTXBIsFree () {
 uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings) {
   noInterrupts () ;
   //----------------------------------- Configure ports
-    pinMode (mCS,  OUTPUT) ;
-    digitalWrite (mCS,  HIGH) ; // CS is high outside a command
     mSPI->configure () ;
   //----------------------------------- Internal begin
     mSPI->beginTransaction () ;
@@ -152,11 +149,9 @@ void ACAN2515::polling (void) {
 uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings) {
   uint32_t errorCode = 0 ; // Ok be default
 //----------------------------------- Send software reset to MCP2515
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  LOW) ;
+  mSPI->select () ;
   mSPI->sendByte (RESET_COMMAND) ;
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  HIGH) ;
+  mSPI->unselect () ;
  //---
   delayMicroseconds (10) ;
 //----------------------------------- Check if MCP2515 is accessible
@@ -185,7 +180,7 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings) 
     mTXBIsFree [1] = true ;
     mTXBIsFree [2] = true ;
   //----------------------------------- Set CNF3, CNF2, CNF1 and CANINTE registers
-    digitalWrite (mCS,  LOW) ;
+    mSPI->select () ;
     mSPI->sendByte (WRITE_COMMAND) ;
     mSPI->sendByte (CNF3_REGISTER) ;
   //--- Register CNF3:
@@ -228,7 +223,7 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings) 
   //  Bit 1 --> 1: RX1IE
   //  Bit 0 --> 1: RX0IE
     mSPI->sendByte (0x1F) ;
-    digitalWrite (mCS,  HIGH) ;
+    mSPI->unselect () ;
   //----------------------------------- Deactivate the RXnBF Pins (High Impedance State)
     write2515Register (BFPCTRL_REGISTER, 0) ;
   //----------------------------------- Set TXnRTS as inputs
@@ -322,8 +317,7 @@ void ACAN2515::handleRXBInterrupt (void) {
     const bool accessRXB0 = (rxStatus & 0x40) != 0 ;
     message.rtr = (rxStatus & 0x10) != 0 ;
     message.ext = (rxStatus & 0x08) != 0 ;
-    delayMicroseconds (1) ;
-    digitalWrite (mCS,  LOW) ;
+    mSPI->select () ;
     mSPI->sendByte (accessRXB0 ? READ_FROM_RXB0SIDH_COMMAND : READ_FROM_RXB1SIDH_COMMAND) ;
   //--- SIDH
     message.id = mSPI->readByte () ; // Read SIDH
@@ -352,8 +346,7 @@ void ACAN2515::handleRXBInterrupt (void) {
       message.data [i] = mSPI->readByte () ;
     }
   //---
-    delayMicroseconds (1) ;
-    digitalWrite (mCS,  HIGH) ;
+    mSPI->unselect () ;
   //--- Free receive buffer command
     bitModify2515Register (CANINTF_REGISTER, accessRXB0 ? 0x01 : 0x02, 0) ;
   //--- Enter received message in receive buffer (if not full)
@@ -391,8 +384,7 @@ void ACAN2515::internalSendMessage (const CANMessage & inFrame, const uint8_t in
 //      Load TXB2, start at TXB2SIDH: 0x44
   const uint8_t loadTxBuffer = LOAD_TX_BUFFER_COMMAND | (inTXB << 1) ;
 //--- Send message
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  LOW) ;
+  mSPI->select () ;
   mSPI->sendByte (loadTxBuffer) ;
   if (inFrame.ext) { // Extended frame
     uint32_t v = inFrame.id >> 21 ;
@@ -428,14 +420,11 @@ void ACAN2515::internalSendMessage (const CANMessage & inFrame, const uint8_t in
       mSPI->sendByte (inFrame.data [i]) ;
     }
   }
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  HIGH) ;
+  mSPI->unselect () ;
 //--- Write send command
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  LOW) ;
+  mSPI->select () ;
   mSPI->sendByte (sendCommand) ;
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  HIGH) ;
+  mSPI->unselect () ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————
@@ -443,49 +432,41 @@ void ACAN2515::internalSendMessage (const CANMessage & inFrame, const uint8_t in
 //——————————————————————————————————————————————————————————————————————————————
 
 void ACAN2515::write2515Register (const uint8_t inRegister, const uint8_t inValue) {
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  LOW) ;
+  mSPI->select () ;
   mSPI->sendByte (WRITE_COMMAND) ;
   mSPI->sendByte (inRegister) ;
   mSPI->sendByte (inValue) ;
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  HIGH) ;
+  mSPI->unselect () ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————
 
 uint8_t ACAN2515::read2515Register (const uint8_t inRegister) {
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  LOW) ;
+  mSPI->select () ;
   mSPI->sendByte (READ_COMMAND) ;
   mSPI->sendByte (inRegister) ;
   const uint8_t readValue = mSPI->readByte () ;
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  HIGH) ;
+  mSPI->unselect () ;
   return readValue ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————
 
 uint8_t ACAN2515::read2515Status (void) {
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  LOW) ;
+  mSPI->select () ;
   mSPI->sendByte (READ_STATUS_COMMAND) ;
   const uint8_t readValue = mSPI->readByte () ;
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  HIGH) ;
+  mSPI->unselect () ;
   return readValue ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————
 
 uint8_t ACAN2515::read2515RxStatus (void) {
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  LOW) ;
+  mSPI->select () ;
   mSPI->sendByte (RX_STATUS_COMMAND) ;
   const uint8_t readValue = mSPI->readByte () ;
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  HIGH) ;
+  mSPI->unselect () ;
   return readValue ;
 }
 
@@ -494,14 +475,12 @@ uint8_t ACAN2515::read2515RxStatus (void) {
 void ACAN2515::bitModify2515Register (const uint8_t inRegister,
                                       const uint8_t inMask,
                                       const uint8_t inData) {
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  LOW) ;
+  mSPI->select () ;
   mSPI->sendByte (BIT_MODIFY_COMMAND) ;
   mSPI->sendByte (inRegister) ;
   mSPI->sendByte (inMask) ;
   mSPI->sendByte (inData) ;
-  delayMicroseconds (1) ;
-  digitalWrite (mCS,  HIGH) ;
+  mSPI->unselect () ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————

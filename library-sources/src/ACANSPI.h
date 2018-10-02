@@ -13,6 +13,8 @@
 #include <SPI.h>
 
 //——————————————————————————————————————————————————————————————————————————————
+//   class ACANAbstractSPI
+//——————————————————————————————————————————————————————————————————————————————
 
 class ACANAbstractSPI {
 
@@ -29,6 +31,8 @@ class ACANAbstractSPI {
   public : virtual ~ ACANAbstractSPI (void) {}
 
   //···········································································
+  //   Methods
+  //···········································································
 
   public: virtual void configure (void) = 0 ;
 
@@ -38,11 +42,19 @@ class ACANAbstractSPI {
 
   //···········································································
 
+  public: virtual void select (void) = 0 ;
+
+  //···········································································
+
   public: virtual void sendByte (const uint8_t inByte) = 0 ;
 
   //···········································································
 
   public: virtual uint8_t readByte (void) = 0 ;
+
+  //···········································································
+
+  public: virtual void unselect (void) = 0 ;
 
   //···········································································
 
@@ -57,6 +69,8 @@ class ACANAbstractSPI {
 } ;
 
 //——————————————————————————————————————————————————————————————————————————————
+//   class ACANSoftSPI
+//——————————————————————————————————————————————————————————————————————————————
 
 class ACANSoftSPI : public ACANAbstractSPI {
 
@@ -64,22 +78,28 @@ class ACANSoftSPI : public ACANAbstractSPI {
   //   Constructor
   //···········································································
 
-  public : ACANSoftSPI (const uint8_t inCLK, // CLK input of MCP2515
-                        const uint8_t inSI,  // SI input of MCP2515
-                        const uint8_t inSO) :  // SO output of MCP2515)
+  public : ACANSoftSPI (const uint8_t inCS,
+                        const uint8_t inSCK,
+                        const uint8_t inMOSI,
+                        const uint8_t inMISO) :
   ACANAbstractSPI (),
-  mCLK (inCLK),
-  mSI (inSI),
-  mSO (inSO) {
+  mCS (inCS),
+  mSCK (inSCK),
+  mMOSI (inMOSI),
+  mMISO (inMISO) {
   }
 
   //···········································································
+  //   Methods
+  //···········································································
 
   public: virtual void configure (void) {
-    pinMode (mCLK, OUTPUT) ;
-    pinMode (mSI,  OUTPUT) ;
-    pinMode (mSO,  INPUT_PULLUP) ;
-    digitalWrite (mCLK, LOW) ;  // CLK is low outside a command
+    pinMode (mCS, OUTPUT) ;
+    digitalWrite (mCS, HIGH) ;  // CS is high outside a command
+    pinMode (mSCK, OUTPUT) ;
+    pinMode (mMOSI,  OUTPUT) ;
+    pinMode (mMISO,  INPUT_PULLUP) ;
+    digitalWrite (mSCK, LOW) ;  // SCK is low outside a command
   }
 
   //···········································································
@@ -89,15 +109,21 @@ class ACANSoftSPI : public ACANAbstractSPI {
 
   //···········································································
 
+  public: virtual void select (void) {
+    digitalWrite (mCS, LOW) ;
+  }
+
+  //···········································································
+
   public: virtual void sendByte (const uint8_t inByte) {
     uint8_t v = inByte ;
     for (int i=0 ; i<8 ; i++) {
-      delayMicroseconds (1) ;
-      digitalWrite (mSI, (v & 0x80) != 0) ;
-      delayMicroseconds (1) ;
-      digitalWrite (mCLK, HIGH) ;
-      delayMicroseconds (1) ;
-      digitalWrite (mCLK, LOW) ;
+ //     delayMicroseconds (1) ;
+      digitalWrite (mMOSI, (v & 0x80) != 0) ;
+ //     delayMicroseconds (1) ;
+      digitalWrite (mSCK, HIGH) ;
+ //     delayMicroseconds (1) ;
+      digitalWrite (mSCK, LOW) ;
       v <<= 1 ;
     }
   }
@@ -107,15 +133,21 @@ class ACANSoftSPI : public ACANAbstractSPI {
   public: virtual uint8_t readByte (void) {
     uint8_t readValue = 0 ;
     for (int i=0 ; i<8 ; i++) {
-      delayMicroseconds (1) ;
+  //    delayMicroseconds (1) ;
       readValue <<= 1 ;
-      readValue |= digitalRead (mSO) ;
-      delayMicroseconds (1) ;
-      digitalWrite (mCLK, HIGH) ;
-      delayMicroseconds (1) ;
-      digitalWrite (mCLK, LOW) ;
+      readValue |= digitalRead (mMISO) ;
+  //    delayMicroseconds (1) ;
+      digitalWrite (mSCK, HIGH) ;
+  //    delayMicroseconds (1) ;
+      digitalWrite (mSCK, LOW) ;
     }
     return readValue ;
+  }
+
+  //···········································································
+
+  public: virtual void unselect (void) {
+    digitalWrite (mCS, HIGH) ;
   }
 
   //···········································································
@@ -127,9 +159,10 @@ class ACANSoftSPI : public ACANAbstractSPI {
   //   Properties
   //···········································································
 
-  public: const uint8_t mCLK ;
-  public: const uint8_t mSI ;
-  public: const uint8_t mSO ;
+  private: const uint8_t mCS ;
+  private: const uint8_t mSCK ;
+  private: const uint8_t mMOSI ;
+  private: const uint8_t mMISO ;
 
   //···········································································
   // No Copy
@@ -140,6 +173,8 @@ class ACANSoftSPI : public ACANAbstractSPI {
 } ;
 
 //——————————————————————————————————————————————————————————————————————————————
+//   class ACANHardSPI
+//——————————————————————————————————————————————————————————————————————————————
 
 class ACANHardSPI : public ACANAbstractSPI {
 
@@ -147,16 +182,22 @@ class ACANHardSPI : public ACANAbstractSPI {
   //   Constructor
   //···········································································
 
-  public : ACANHardSPI (SPIClass & inSPI, // Hardware SPI object
+  public : ACANHardSPI (const uint8_t inCS,
+                        SPIClass & inSPI, // Hardware SPI object
                         const uint32_t inSPISpeed) : // in byte / s
   ACANAbstractSPI (),
   mHardSPI (& inSPI),
-  mSPISettings (inSPISpeed, MSBFIRST, SPI_MODE0) {
+  mSPISettings (inSPISpeed, MSBFIRST, SPI_MODE0),
+  mCS (inCS) {
   }
 
   //···········································································
+  //   Methods
+  //···········································································
 
   public: virtual void configure (void) {
+    pinMode (mCS, OUTPUT) ;
+    digitalWrite (mCS, HIGH) ;  // CS is high outside a command
     mHardSPI->begin () ;
   }
 
@@ -164,6 +205,12 @@ class ACANHardSPI : public ACANAbstractSPI {
 
   public: virtual void beginTransaction (void) {
     mHardSPI->beginTransaction (mSPISettings) ;
+  }
+
+  //···········································································
+
+  public: virtual void select (void) {
+    digitalWrite (mCS, LOW) ;
   }
 
   //···········································································
@@ -180,6 +227,12 @@ class ACANHardSPI : public ACANAbstractSPI {
 
   //···········································································
 
+  public: virtual void unselect (void) {
+    digitalWrite (mCS, HIGH) ;
+  }
+
+  //···········································································
+
   public: virtual void endTransaction (void) {
     mHardSPI->endTransaction () ;
   }
@@ -190,6 +243,7 @@ class ACANHardSPI : public ACANAbstractSPI {
 
   private: SPIClass * mHardSPI ;
   private: const SPISettings mSPISettings ;
+  private: const uint8_t mCS ;
 
   //···········································································
   // No Copy

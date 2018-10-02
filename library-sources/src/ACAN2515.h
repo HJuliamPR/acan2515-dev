@@ -11,7 +11,7 @@
 
 #include <ACANBuffer.h>
 #include <ACAN2515Settings.h>
-#include <ACANSPI.h>
+#include <SPI.h>
 
 //——————————————————————————————————————————————————————————————————————————————
 
@@ -47,7 +47,6 @@ class ACAN2515 {
   private: void handleRXBInterrupt (void) ;
 
  //--- Properties
-  public: const uint8_t mCS ;
   private : class ACANAbstractSPI * mSPI ;
 
 //--- Receive buffer
@@ -58,15 +57,15 @@ class ACAN2515 {
   private: bool mTXBIsFree [3] ;
   private: void internalSendMessage (const CANMessage & inFrame, const uint8_t inTXB) ;
 
-  public: inline uint32_t transmitBufferSize (const uint8_t inIndex) const {
+  public: inline uint32_t transmitBufferSize (const uint32_t inIndex) const {
     return mTransmitBuffer [inIndex].size () ;
   }
 
-  public: inline uint32_t transmitBufferCount (const uint8_t inIndex) const {
+  public: inline uint32_t transmitBufferCount (const uint32_t inIndex) const {
     return mTransmitBuffer [inIndex].count () ;
   }
 
-  public: inline uint32_t transmitBufferPeakCount (const uint8_t inIndex) const {
+  public: inline uint32_t transmitBufferPeakCount (const uint32_t inIndex) const {
     return mTransmitBuffer [inIndex].peakCount () ;
   }
 

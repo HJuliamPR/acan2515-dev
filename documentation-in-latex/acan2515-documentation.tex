@@ -481,7 +481,7 @@ Note it runs without any external hardware, it uses the \emph{loop back} mode an
 void setup () {
   Serial.begin (9600) ;
   Serial.println ("Hello") ;
-  ACAN2515Settings settings (125 * 1000) ; // 125 kbit/s
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ; // 125 kbit/s
   settings.mLoopBackMode = true ;
   settings.mSelfReceptionMode = true ;
   const uint32_t errorCode = can.begin (settings) ;
@@ -964,7 +964,7 @@ By default:
 You can change the default values by setting the \texttt{mTransmitBuffer0Size}, \texttt{mTransmitBuffer1Size}, \texttt{mTransmitBuffer2Size} properties of \texttt{settings} variable; for example:
 
 { \small\begin{lstlisting}[language=c++]
-ACAN2515Settings settings (...) ;
+ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
 settings.mTransmitBuffer0Size = 30 ;
 const uint32_t errorCode = can.begin (settings) ;
 ...
@@ -976,30 +976,30 @@ A zero size is valid: calling the \texttt{tryToSend} method returns \texttt{true
 
 \subsection{The \texttt{transmitBufferSize} method}
 
-The \texttt{transmitBufferSize} method returns the size of the driver transmit buffer, that is the value of \texttt{settings.mTransmitBufferSize}.
+The \texttt{transmitBufferSize} method has one argument, the index $i$ of a driver transmit buffer ($0 \leqslant i \leqslant 2$). It returns the allocated size of this driver transmit buffer, that is the value of \texttt{settings.mTransmitBuffer$i$Size} when the \texttt{begin} method is called.
 { \small\begin{lstlisting}[language=c++]
-const uint32_t s = can.transmitBufferSize () ;
+const uint32_t s = can.transmitBufferSize (1) ; // Driver transmit buffer 1
 \end{lstlisting}}
 
 
 \subsection{The \texttt{transmitBufferCount} method}
 
-The \texttt{transmitBufferCount} method returns the current number of messages in the transmit buffer.
+The \texttt{transmitBufferCount} method has one argument, the index $i$ of a driver transmit buffer ($0 \leqslant i \leqslant 2$). It returns the current number of messages in the driver transmit buffer $i$.
 { \small\begin{lstlisting}[language=c++]
-const uint32_t n = can.transmitBufferCount () ;
+const uint32_t n = can.transmitBufferCount (0) ; // Driver transmit buffer 0
 \end{lstlisting}}
 
 
 \subsection{The \texttt{transmitBufferPeakCount} method}
 
-The \texttt{transmitBufferPeakCount} method returns the peak value of message count in the transmit buffer.
+The \texttt{transmitBufferPeakCount} method has one argument, the index $i$ of a driver transmit buffer ($0 \leqslant i \leqslant 2$). It returns the peak value of message count in the driver transmit buffer $i$.
 { \small\begin{lstlisting}[language=c++]
-const uint32_t max = can.transmitBufferPeakCount () ;
+const uint32_t max = can.transmitBufferPeakCount (2) ; // Driver transmit buffer 0
 \end{lstlisting}}
 
-Il the transmit buffer is full when \texttt{tryToSend} is called, the return value is \texttt{false}. In such case, the following calls of \texttt{transmitBufferPeakCount} will return \texttt{transmitBufferSize ()+1}. 
+Il the transmit buffer is full when \texttt{tryToSend} is called, the return value of this call is \texttt{false}. In such case, the following calls of \texttt{transmitBufferPeakCount($i$)} will return \texttt{transmitBufferSize ($i$)+1}. 
 
-So, when \texttt{transmitBufferPeakCount} returns a value lower or equal to \texttt{transmitBufferSize ()}, it means that calls to \texttt{tryToSend} have always returned \texttt{true}.
+So, when \texttt{transmitBufferPeakCount($i$} returns a value lower or equal to \texttt{transmitBufferSize ($i$)}, it means that calls to \texttt{tryToSend} have always returned \texttt{true}, and no overflow occurs on transmit buffer $i$.
 
 
 
@@ -1052,7 +1052,7 @@ The \texttt{receive} method:
 You need to manually dispatch the received messages. If you did not provide any receive filter, you should check the \texttt{rtr} bit (remote or data frame?), the \texttt{ext} bit (standard or extended frame), and the \texttt{id} (identifier value). The following snippet dispatches three messages:
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACAN2515Settings settings (125 * 1000) ;
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
   ...
   const uint32_t errorCode = can.begin (settings) ; // No receive filter
   ...
@@ -1088,10 +1088,10 @@ So are the header of the \texttt{handle\_myMessage\_1} and the \texttt{handle\_m
 
 \subsectionLabel{Driver receive buffer size}{driverReceiveBufferSize}
 
-By default, the driver receive buffer size is 32.  You can change this default value by setting the \texttt{mReceiveBufferSize} property of \texttt{settings} variable:
+By default, the driver receive buffer size is 32. You can change it by setting the \texttt{mReceiveBufferSize} property of \texttt{settings} variable before calling the \texttt{begin} method:
 
 { \small\begin{lstlisting}[language=c++]
-ACAN2515Settings settings (125 * 1000) ;
+ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
 settings.mReceiveBufferSize = 100 ;
 const uint32_t errorCode = can.begin (settings) ;
 ...
@@ -1102,7 +1102,7 @@ As the size of \texttt{CANMessage} class is 16 bytes, the actual size of the dri
 
 \subsection{The \texttt{receiveBufferSize} method}
 
-The \texttt{receiveBufferSize} method returns the size of the driver receive buffer, that is the value of \texttt{settings.mReceiveBufferSize}.
+The \texttt{receiveBufferSize} method returns the size of the driver receive buffer, that is the value of the \texttt{mReceiveBufferSize} property of \texttt{settings} variable when the the \texttt{begin} method is called.
 { \small\begin{lstlisting}[language=c++]
 const uint32_t s = can.receiveBufferSize () ;
 \end{lstlisting}}
@@ -1123,7 +1123,7 @@ The \texttt{receiveBufferPeakCount} method returns the peak value of message cou
 const uint32_t max = can.receiveBufferPeakCount () ;
 \end{lstlisting}}
 
-Note the driver receive buffer may overflow, if messages are not retrieved (by calls of \texttt{receive} or \texttt{dispatchReceivedMessage} methods). If an overflow occurs, further calls of \texttt{can.receiveBufferPeakCount ()} return \texttt{can.receiveBufferSize ()+1}.
+Note the driver receive buffer can overflow, if messages are not retrieved (by calling the \texttt{receive} or the \texttt{dispatchReceivedMessage} methods). If an overflow occurs, further calls of \texttt{can.receiveBufferPeakCount ()} return \texttt{can.receiveBufferSize ()+1}.
 
 
 
@@ -1139,7 +1139,7 @@ The \texttt{mConfiguration} property of the \texttt{settings} variable defines t
 You can easily override the default configuration:
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACAN2515Settings settings (125 * 1000) ;
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
   settings.mConfiguration = ACAN2515Settings::k14_18_Filters ;
   const uint32_t errorCode = can.begin (settings) ; // No receive filter
   ...
@@ -1214,7 +1214,7 @@ The driver lets you to define two kinds of filters: \emph{primary filters} and \
 For defining \emph{primary filters}\footnote{For \emph{secondary filters}, see \refSectionPage{secondaryFilters}.}, you write:
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACAN2515Settings settings (125 * 1000) ;
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
   ...
   const ACANPrimaryFilter primaryFilters [] = {
     ACANPrimaryFilter (kData, kExtended, 0x123456), // Filter #0
@@ -1367,7 +1367,7 @@ The \texttt{receive} method retrieves a received message. When you define primar
 
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACAN2515Settings settings (125 * 1000) ;
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
   ...
   const ACANPrimaryFilter primaryFilters [] = {
     ACANPrimaryFilter (kData, kExtended, 0x123456), // Filter #0
@@ -1424,7 +1424,7 @@ Depending from the configuration, you can define several \emph{secondary filters
 This is an example without primary filter, and with secondary filters:
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACAN2515Settings settings (125 * 1000) ;
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
   ...
   const ACANSecondaryFilter secondaryFilters [] = {
     ACANSecondaryFilter (kData, kExtended, 0x123456), // Filter #0
@@ -1472,7 +1472,7 @@ A consequence is if a filter appears twice, the second occurrence will never mat
 This is an example with one primary filter, and two secondary filters:
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACAN2515Settings settings (125 * 1000) ;
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
   ...
   const ACANPrimaryFilter primaryFilters [] = {
     ACANPrimaryFilter (kData, kExtended, 0x123456), // Filter #0
@@ -1584,7 +1584,7 @@ The \texttt{receive} method retrieves a received message. When you define primar
 
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACAN2515Settings settings (125 * 1000) ;
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
   ...
   const ACANPrimaryFilter primaryFilters [] = {
     ACANPrimaryFilter (kData, kExtended, 0x123456), // Filter #0
@@ -1645,7 +1645,7 @@ For enabling the use of the \texttt{dispatchReceivedMessage} method, you add to 
 
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACAN2515Settings settings (125 * 1000) ;
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
   ...
   const ACANPrimaryFilter primaryFilters [] = {
     ACANPrimaryFilter (kData, kExtended, 0x123456, handle_myMessage_0)
@@ -1815,7 +1815,7 @@ This error is raised when the \texttt{mBitConfigurationClosedToWishedRate} of th
 
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACAN2515Settings settings (1) ; // 1 bit/s !!!
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 1) ; // 1 bit/s !!!
   // Here, settings.mBitConfigurationClosedToWishedRate is false
   const uint32_t errorCode = can.begin (settings) ;
   // Here, errorCode == ACAN::kCANBitConfigurationTooFarFromWishedBitRateErrorMask
@@ -1923,7 +1923,7 @@ In the Teensy 3.6, \texttt{ACAN::can1} does not support alternate Rx pin.
 The constructor of the \texttt{ACAN2515Settings} has one mandatory argument: the wished bit rate. It tries to compute the CAN bit settings for this bit rate. If it succeeds, the constructed object has its \texttt{mBitConfigurationClosedToWishedRate} property set to \texttt{true}, otherwise it is set to \texttt{false}. For example:
 { \small\begin{lstlisting}[language=c++]
 void setup () {
-  ACAN2515Settings settings (1 * 1000 * 1000) ; // 1 Mbit/s
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 1 * 1000 * 1000) ; // 1 Mbit/s
   // Here, settings.mBitConfigurationClosedToWishedRate is true
   ...
 }
@@ -1933,7 +1933,7 @@ Of course, CAN bit computation always succeeds for classical bit rates: 1 Mbit/s
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACAN2515Settings settings (842 * 1000) ; // 842 kbit/s
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 842 * 1000) ; // 842 kbit/s
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
   Serial.print ("actual bit rate: ") ;
@@ -1951,7 +1951,7 @@ By default, a wished bit rate is accepted if the distance from the computed actu
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACAN2515Settings settings (842 * 1000, 100) ; // 842 kbit/s, max distance is 100 ppm
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 842 * 1000, 100) ; // 842 kbit/s, max distance is 100 ppm
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 0 (--> is false)
   Serial.print ("actual bit rate: ") ;
@@ -1966,7 +1966,7 @@ The second argument does not change the CAN bit computation, it only changes the
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACAN2515Settings settings (500 * 1000, 0) ; // 500 kbit/s, max distance is 0 ppm
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 500 * 1000, 0) ; // 500 kbit/s, max distance is 0 ppm
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
   Serial.print ("actual bit rate: ") ;
@@ -1987,7 +1987,7 @@ In any way, the bit rate computation always gives a consistent result, resulting
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACAN2515Settings settings (440 * 1000) ; // 440 kbit/s 
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 440 * 1000) ; // 440 kbit/s 
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 0 (--> is false)
   Serial.print ("actual bit rate: ") ;
@@ -2003,7 +2003,7 @@ You can get the details of the CAN bit decomposition. For example:
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACAN2515Settings settings (440 * 1000) ; // 440 kbit/s 
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 440 * 1000) ; // 440 kbit/s 
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 0 (--> is false)
   Serial.print ("actual bit rate: ") ;
@@ -2040,7 +2040,7 @@ You can change the property values for adapting to the particularities of your C
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACAN2515Settings settings (500 * 1000) ; // 500 kbit/s
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 500 * 1000) ; // 500 kbit/s
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
   settings.mPhaseSegment1 ++ ; // 5 -> 6: safe, 1 <= PS1 <= 8
@@ -2102,7 +2102,7 @@ This method checks the CAN bit decomposition (given by \texttt{mBitRatePrescaler
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACAN2515Settings settings (500 * 1000) ; // 500 kbit/s
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 500 * 1000) ; // 500 kbit/s
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
   settings.mPhaseSegment1 = 0 ; // Error, mPhaseSegment1 should be >= 1 (and <= 8)
@@ -2171,7 +2171,7 @@ The \texttt{actualBitRate} method returns the actual bit computed from \texttt{m
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACAN2515Settings settings (440 * 1000) ; // 440 kbit/s 
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 440 * 1000) ; // 440 kbit/s 
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 0 (--> is false)
   Serial.print ("actual bit rate: ") ;
@@ -2200,7 +2200,7 @@ The \texttt{exactBitRate} method returns \texttt{true} if the actual bit rate is
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACAN2515Settings settings (842 * 1000) ; // 842 kbit/s
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 842 * 1000) ; // 842 kbit/s
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
   Serial.print ("actual bit rate: ") ;
@@ -2228,7 +2228,7 @@ The \texttt{ppmFromWishedBitRate} method returns the distance from the actual bi
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACAN2515Settings settings (842 * 1000) ; // 842 kbit/s
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 842 * 1000) ; // 842 kbit/s
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
   Serial.print ("actual bit rate: ") ;
@@ -2254,7 +2254,7 @@ The \texttt{samplePointFromBitStart} method returns the distance of sample point
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
-  ACAN2515Settings settings (500 * 1000) ; // 500 kbit/s
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 500 * 1000) ; // 500 kbit/s
   Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
   Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
   Serial.print ("Sample point: ") ;

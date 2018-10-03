@@ -103,13 +103,7 @@ class ACANSettings2515 {
   public: static ACAN2515Mask extended2515Mask (const uint32_t inIdentifier) ;
 
 
-//--- Receive acceptance filters
-  public: ACAN2515Mask mRXF0 ;
-  public: ACAN2515Mask mRXF1 ;
-  public: ACAN2515Mask mRXF2 ;
-  public: ACAN2515Mask mRXF3 ;
-  public: ACAN2515Mask mRXF4 ;
-  public: ACAN2515Mask mRXF5 ;
+//--- Receive acceptance filters static functions
   public: static ACAN2515Mask standard2515Filter (const uint16_t inIdentifier,
                                                   const uint8_t inByte0,
                                                   const uint8_t inByte1) ;

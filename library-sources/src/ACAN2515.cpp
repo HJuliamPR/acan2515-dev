@@ -1,15 +1,15 @@
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 // A CAN driver for MCP2515
 // by Pierre Molinaro
 // https://github.com/pierremolinaro/acan2515
 //
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 #include <ACAN2515.h>
 
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 //   MCP2515 COMMANDS
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 static const uint8_t RESET_COMMAND = 0xC0 ;
 static const uint8_t WRITE_COMMAND = 0x02 ;
@@ -22,20 +22,14 @@ static const uint8_t READ_FROM_RXB1SIDH_COMMAND = 0x94 ;
 static const uint8_t READ_STATUS_COMMAND        = 0xA0 ;
 static const uint8_t RX_STATUS_COMMAND          = 0xB0 ;
 
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 //   MCP2515 REGISTERS
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
-static const uint8_t RXF0SIDH_REGISTER  = 0x00 ;
-static const uint8_t RXF1SIDH_REGISTER  = 0x04 ;
-static const uint8_t RXF2SIDH_REGISTER  = 0x08 ;
 static const uint8_t BFPCTRL_REGISTER   = 0x0C ;
 static const uint8_t TXRTSCTRL_REGISTER = 0x0D ;
 static const uint8_t CANSTAT_REGISTER   = 0x0E ;
 static const uint8_t CANCTRL_REGISTER   = 0x0F ;
-static const uint8_t RXF3SIDH_REGISTER  = 0x10 ;
-static const uint8_t RXF4SIDH_REGISTER  = 0x14 ;
-static const uint8_t RXF5SIDH_REGISTER  = 0x18 ;
 static const uint8_t RXM0SIDH_REGISTER  = 0x20 ;
 static const uint8_t RXM1SIDH_REGISTER  = 0x24 ;
 static const uint8_t CNF3_REGISTER      = 0x28 ;
@@ -48,9 +42,11 @@ static const uint8_t TXB2CTRL_REGISTER  = 0x50 ;
 static const uint8_t RXB0CTRL_REGISTER  = 0x60 ;
 static const uint8_t RXB1CTRL_REGISTER  = 0x70 ;
 
-//——————————————————————————————————————————————————————————————————————————————
+static const uint8_t RXFSIDH_REGISTER [6] = {0x00, 0x04, 0x08, 0x10, 0x14, 0x18} ;
+
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 //   CONSTRUCTOR, HARDWARE SPI
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 ACAN2515::ACAN2515 (const uint8_t inCS,  // CS input of MCP2515
                     SPIClass & inSPI, // Hardware SPI object
@@ -60,25 +56,38 @@ mSPISettings (10 * 1000 * 1000, MSBFIRST, SPI_MODE0),  // 10 MHz
 mCS (inCS),
 mINT (inINT),
 mReceiveBuffer (),
+mCallBackFunctionArray (),
 mTransmitBuffer (),
 mTXBIsFree () {
+  for (uint32_t i=0 ; i<6 ; i++) {
+    mCallBackFunctionArray [i] = NULL ;
+  }
 }
 
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 //   BEGIN
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings,
-                          void (* inInterruptServiceRoutine) (void)) {
+                          void (* inInterruptServiceRoutine) (void),
+                          const ACAN2515AcceptanceFilter inAcceptanceFilters [],
+                          const uint32_t inAcceptanceFilterCount) {
   uint32_t errorCode = 0 ; // Means no error
 //----------------------------------- check mINT has interrupt capability
   const int8_t itPin = digitalPinToInterrupt (mINT) ;
   if (itPin == NOT_AN_INTERRUPT) {
     errorCode = kINTPinIsNotAnInterrupt ;
   }
-//----------------------------------- check isr is not NULL
+//----------------------------------- Check isr is not NULL
   if (inInterruptServiceRoutine == NULL) {
     errorCode |= kISRIsNull ;
+  }
+//----------------------------------- Check acceptance filters
+  if (inAcceptanceFilterCount > 6) {
+    errorCode |= kAcceptanceFilterCountGreaterThan6 ;
+  }
+  if ((inAcceptanceFilterCount > 0) && (inAcceptanceFilters == NULL)) {
+    errorCode |= kAcceptanceFilterArrayIsNULL ;
   }
 //----------------------------------- if no error, configure port and MCP2515
   if (errorCode == 0) {
@@ -99,15 +108,15 @@ uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings,
     attachInterrupt (itPin, inInterruptServiceRoutine, LOW) ;
     mSPI->usingInterrupt (itPin) ;
   //--- Internal begin
-    errorCode = internalBeginOperation (inSettings) ;
+    errorCode = internalBeginOperation (inSettings, inAcceptanceFilters, inAcceptanceFilterCount) ;
   }
 //----------------------------------- Return
   return errorCode ;
 }
 
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 //   MESSAGE EMISSION
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 bool ACAN2515::tryToSend (const CANMessage & inMessage) {
 //--- Find send buffer index
@@ -128,9 +137,9 @@ bool ACAN2515::tryToSend (const CANMessage & inMessage) {
   return ok ;
 }
 
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 //   MESSAGE RECEPTION
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 bool ACAN2515::available (void) {
   mSPI->beginTransaction (mSPISettings) ;
@@ -139,7 +148,7 @@ bool ACAN2515::available (void) {
   return hasReceivedMessage ;
 }
 
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 bool ACAN2515::receive (CANMessage & outMessage) {
   mSPI->beginTransaction (mSPISettings) ;
@@ -149,11 +158,31 @@ bool ACAN2515::receive (CANMessage & outMessage) {
   return hasReceivedMessage ;
 }
 
-//——————————————————————————————————————————————————————————————————————————————
-//  INTERRUPTS ARE DISABLED WHEN THESE FUNCTIONS ARE EXECUTED
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
-uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings) {
+bool ACAN2515::dispatchReceivedMessage (const tFilterMatchCallBack inFilterMatchCallBack) {
+  CANMessage receivedMessage ;
+  const bool hasReceived = receive (receivedMessage) ;
+  if (hasReceived) {
+    const uint32_t filterIndex = receivedMessage.idx ;
+    if (NULL != inFilterMatchCallBack) {
+      inFilterMatchCallBack (filterIndex) ;
+    }
+    ACANCallBackRoutine callBackFunction = mCallBackFunctionArray [filterIndex] ;
+    if (NULL != callBackFunction) {
+      callBackFunction (receivedMessage) ;
+    }
+  }
+  return hasReceived ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+//  INTERRUPTS ARE DISABLED WHEN THESE FUNCTIONS ARE EXECUTED
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings,
+                                           const ACAN2515AcceptanceFilter inAcceptanceFilters [],
+                                           const uint32_t inAcceptanceFilterCount) {
   uint32_t errorCode = 0 ; // Ok be default
 //----------------------------------- Check if MCP2515 is accessible
   mSPI->beginTransaction (mSPISettings) ;
@@ -238,12 +267,19 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings) 
   //----------------------------------- Setup mask registers
     setupMaskRegister (inSettings.mRXM0, RXM0SIDH_REGISTER) ;
     setupMaskRegister (inSettings.mRXM1, RXM1SIDH_REGISTER) ;
-    setupMaskRegister (inSettings.mRXF0, RXF0SIDH_REGISTER) ;
-    setupMaskRegister (inSettings.mRXF1, RXF1SIDH_REGISTER) ;
-    setupMaskRegister (inSettings.mRXF2, RXF2SIDH_REGISTER) ;
-    setupMaskRegister (inSettings.mRXF3, RXF3SIDH_REGISTER) ;
-    setupMaskRegister (inSettings.mRXF4, RXF4SIDH_REGISTER) ;
-    setupMaskRegister (inSettings.mRXF5, RXF5SIDH_REGISTER) ;
+    if (inAcceptanceFilterCount > 0) {
+      uint32_t idx = 0 ;
+      while (idx < inAcceptanceFilterCount) {
+        setupMaskRegister (inAcceptanceFilters [idx].mMask, RXFSIDH_REGISTER [idx]) ;
+        mCallBackFunctionArray [idx] = inAcceptanceFilters [idx].mCallBack ;
+        idx += 1 ;
+      }
+      while (idx < 6) {
+        setupMaskRegister (inAcceptanceFilters [0].mMask, RXFSIDH_REGISTER [idx]) ;
+        mCallBackFunctionArray [idx] = inAcceptanceFilters [0].mCallBack ;
+        idx += 1 ;
+      }
+    }
   //----------------------------------- Set TXBi priorities
     write2515Register (TXB0CTRL_REGISTER, inSettings.mTXBPriority & 3) ;
     write2515Register (TXB1CTRL_REGISTER, (inSettings.mTXBPriority >> 2) & 3) ;
@@ -302,7 +338,7 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings) 
   return errorCode ;
 }
 
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 void ACAN2515::isr (void) {
   mSPI->beginTransaction (mSPISettings) ;
@@ -334,7 +370,7 @@ void ACAN2515::isr (void) {
   mSPI->endTransaction () ;
 }
 
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 // This function is called by ISR when a MCP2515 receive buffer becomes full
 
 void ACAN2515::handleRXBInterrupt (void) {
@@ -345,7 +381,12 @@ void ACAN2515::handleRXBInterrupt (void) {
     CANMessage message ;
     message.rtr = (rxStatus & 0x10) != 0 ;
     message.ext = (rxStatus & 0x08) != 0 ;
+  //--- Set idx field to matching receive filter
     message.idx = rxStatus & 0x07 ;
+    if (message.idx > 5) {
+      message.idx -= 6 ;
+    }
+  //---
     select () ;
     mSPI->transfer (accessRXB0 ? READ_FROM_RXB0SIDH_COMMAND : READ_FROM_RXB1SIDH_COMMAND) ;
   //--- SIDH
@@ -384,7 +425,7 @@ void ACAN2515::handleRXBInterrupt (void) {
   }
 }
 
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 // This function is called by ISR when a MCP2515 transmit buffer becomes empty
 
 void ACAN2515::handleTXBInterrupt (const uint8_t inTXB) { // inTXB value is 0, 1 or 2
@@ -400,7 +441,7 @@ void ACAN2515::handleTXBInterrupt (const uint8_t inTXB) { // inTXB value is 0, 1
   }
 }
 
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 void ACAN2515::internalSendMessage (const CANMessage & inFrame, const uint8_t inTXB) { // inTXB is 0, 1 or 2
 //--- Send command
@@ -457,9 +498,9 @@ void ACAN2515::internalSendMessage (const CANMessage & inFrame, const uint8_t in
   unselect () ;
 }
 
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 //  INTERNAL SPI FUNCTIONS
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 void ACAN2515::write2515Register (const uint8_t inRegister, const uint8_t inValue) {
   select () ;
@@ -469,7 +510,7 @@ void ACAN2515::write2515Register (const uint8_t inRegister, const uint8_t inValu
   unselect () ;
 }
 
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 uint8_t ACAN2515::read2515Register (const uint8_t inRegister) {
   select () ;
@@ -480,7 +521,7 @@ uint8_t ACAN2515::read2515Register (const uint8_t inRegister) {
   return readValue ;
 }
 
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 uint8_t ACAN2515::read2515Status (void) {
   select () ;
@@ -490,7 +531,7 @@ uint8_t ACAN2515::read2515Status (void) {
   return readValue ;
 }
 
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 uint8_t ACAN2515::read2515RxStatus (void) {
   select () ;
@@ -500,7 +541,7 @@ uint8_t ACAN2515::read2515RxStatus (void) {
   return readValue ;
 }
 
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 void ACAN2515::bitModify2515Register (const uint8_t inRegister,
                                       const uint8_t inMask,
@@ -513,7 +554,7 @@ void ACAN2515::bitModify2515Register (const uint8_t inRegister,
   unselect () ;
 }
 
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 void ACAN2515::setupMaskRegister (const ACAN2515Mask inMask, const uint8_t inRegister) {
   select () ;
@@ -526,4 +567,4 @@ void ACAN2515::setupMaskRegister (const ACAN2515Mask inMask, const uint8_t inReg
   unselect () ;
 }
 
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————

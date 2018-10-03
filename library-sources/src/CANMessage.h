@@ -1,6 +1,7 @@
 //——————————————————————————————————————————————————————————————————————————————
 // Generic CAN Message
 // by Pierre Molinaro
+// https://github.com/pierremolinaro/acan
 // https://github.com/pierremolinaro/acan2515
 //
 //——————————————————————————————————————————————————————————————————————————————

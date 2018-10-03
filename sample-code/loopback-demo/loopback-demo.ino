@@ -20,7 +20,21 @@ static const byte MCP2515_SI  = 28 ; // SI input of MCP2515
 static const byte MCP2515_SO  = 39 ; // SO output of MCP2515 
 
 static const byte MCP2515_CS  = 20 ; // CS input of MCP2515 
-static const byte MCP2515_IRQ = 37 ; // INT output of MCP2515
+static const byte MCP2515_INT = 37 ; // INT output of MCP2515
+
+//——————————————————————————————————————————————————————————————————————————————
+//  MCP2515 Driver object
+//——————————————————————————————————————————————————————————————————————————————
+
+ACAN2515 can (MCP2515_CS, SPI, MCP2515_INT) ;
+
+//——————————————————————————————————————————————————————————————————————————————
+//  MCP2515 Interrupt Service Routine
+//——————————————————————————————————————————————————————————————————————————————
+
+void canISR (void) {
+  can.isr () ;
+}
 
 //——————————————————————————————————————————————————————————————————————————————
 //  MCP2515 Quartz: adapt to your design
@@ -29,15 +43,7 @@ static const byte MCP2515_IRQ = 37 ; // INT output of MCP2515
 static const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 
 //——————————————————————————————————————————————————————————————————————————————
-
-ACAN2515 can (MCP2515_CS, SPI) ;
-
-//——————————————————————————————————————————————————————————————————————————————
-
-void canISR (void) {
-  can.isr () ;
-}
-
+//   SETUP
 //——————————————————————————————————————————————————————————————————————————————
 
 void setup () {
@@ -67,14 +73,11 @@ void setup () {
   SPI.setMOSI (MCP2515_SI) ;
   SPI.setMISO (MCP2515_SO) ;
   SPI.setSCK (MCP2515_SCK) ;
-//--- Configure MCP2515_IRQ as external interrupt
-  pinMode (MCP2515_IRQ, INPUT_PULLUP) ;
-  attachInterrupt (digitalPinToInterrupt (MCP2515_IRQ), canISR, LOW) ;
 //--- Configure ACAN2515
   Serial.println ("Configure ACAN2515") ;
   ACANSettings2515 settings (QUARTZ_FREQUENCY, 125 * 1000) ; // CAN bit rate 125 kb/s
   settings.mRequestedMode = ACAN2515RequestedMode::LoopBackMode ; // Select loopback mode
-  const uint32_t errorCode = can.begin (settings) ;
+  const uint32_t errorCode = can.begin (settings, canISR) ;
   if (errorCode == 0) {
     Serial.print ("Bit Rate prescaler: ") ;
     Serial.println (settings.mBitRatePrescaler) ;

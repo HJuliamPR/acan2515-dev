@@ -18,20 +18,20 @@
 class ACAN2515 {
 //--- Constructor: using hardware SPI
   public: ACAN2515 (const uint8_t inCS,  // CS input of MCP2515
-                    SPIClass & inSPI) ; // Hardware SPI object
+                    SPIClass & inSPI, // Hardware SPI object
+                    const uint8_t inINT) ; // INT output of MCP2515
 
-//--- Constructor: using software SPI
-  public: ACAN2515 (const uint8_t inCS,  // CS input of MCP2515
-                    const uint8_t inCLK, // CLK input of MCP2515
-                    const uint8_t inSI,  // SI input of MCP2515
-                    const uint8_t inSO) ;  // SO output of MCP2515
 
 //--- Initialisation: return 0 if ok, otherwise see error codes below
-  public: uint32_t begin (const ACANSettings2515 & inSettings) ;
+  public: uint32_t begin (const ACANSettings2515 & inSettings,
+                          void (* inInterruptServiceRoutine) (void)) ;
 
 //--- Error codes returned by begin
-  public: static const uint32_t kNoMCP2515           = 1 <<  0 ;
-  public: static const uint32_t kInvalidSettings     = 1 <<  1 ;
+  public: static const uint32_t kNoMCP2515              = 1 <<  0 ;
+  public: static const uint32_t kInvalidSettings        = 1 <<  1 ;
+  public: static const uint32_t kINTPinIsNotAnInterrupt = 1 <<  2 ;
+  public: static const uint32_t kISRIsNull              = 1 <<  3 ;
+  public: static const uint32_t kRequestedModeTimeOut   = 1 <<  4 ;
 
 //--- Receiving messages
   public: bool available (void) ;
@@ -41,13 +41,15 @@ class ACAN2515 {
   public: bool tryToSend (const CANMessage & inMessage) ;
 
 //--- Handling messages to send and receiving messages
-  public: void polling (void) ;
   public: void isr (void) ;
   private: void handleTXBInterrupt (const uint8_t inTXB) ;
   private: void handleRXBInterrupt (void) ;
 
  //--- Properties
-  private : class ACANAbstractSPI * mSPI ;
+  private : SPIClass * mSPI ;
+  private: const SPISettings mSPISettings ;
+  private: const uint8_t mCS ;
+  private: const uint8_t mINT ;
 
 //--- Receive buffer
   private: ACANBuffer mReceiveBuffer ;
@@ -70,6 +72,8 @@ class ACAN2515 {
   }
 
 //--- Private methods
+  private: inline void select (void) { digitalWrite (mCS, LOW) ; }
+  private: inline void unselect (void) { digitalWrite (mCS, HIGH) ; }
   private: uint32_t internalBeginOperation (const ACANSettings2515 & inSettings) ;
   private: void write2515Register (const uint8_t inRegister, const uint8_t inValue) ;
   private: uint8_t read2515Register (const uint8_t inRegister) ;

@@ -6,7 +6,6 @@
 //——————————————————————————————————————————————————————————————————————————————
 
 #include <ACAN2515.h>
-#include <ACANSPI.h>
 
 //——————————————————————————————————————————————————————————————————————————————
 //   MCP2515 COMMANDS
@@ -54,42 +53,54 @@ static const uint8_t RXB1CTRL_REGISTER  = 0x70 ;
 //——————————————————————————————————————————————————————————————————————————————
 
 ACAN2515::ACAN2515 (const uint8_t inCS,  // CS input of MCP2515
-                    SPIClass & inSPI) : // Hardware SPI object
-mSPI (NULL),
+                    SPIClass & inSPI, // Hardware SPI object
+                    const uint8_t inINT) : // INT output of MCP2515
+mSPI (&inSPI),
+mSPISettings (10 * 1000 * 1000, MSBFIRST, SPI_MODE0),  // 10 MHz
+mCS (inCS),
+mINT (inINT),
 mReceiveBuffer (),
 mTransmitBuffer (),
 mTXBIsFree () {
-  mSPI = new ACANHardSPI (inCS, inSPI, 10 * 1000 * 1000) ; // 10 MHz
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-//   CONSTRUCTOR, SOFTWARE SPI
-//——————————————————————————————————————————————————————————————————————————————
-
-ACAN2515::ACAN2515 (const uint8_t inCS,
-                    const uint8_t inCLK,
-                    const uint8_t inSI,
-                    const uint8_t inSO) :
-mSPI (NULL),
-mReceiveBuffer (),
-mTransmitBuffer (),
-mTXBIsFree () {
-  mSPI = new ACANSoftSPI (inCS, inCLK, inSI, inSO) ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————
 //   BEGIN
 //——————————————————————————————————————————————————————————————————————————————
 
-uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings) {
-  noInterrupts () ;
-  //----------------------------------- Configure ports
-    mSPI->configure () ;
-  //----------------------------------- Internal begin
-    mSPI->beginTransaction () ;
-      const uint32_t errorCode = internalBeginOperation (inSettings) ;
+uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings,
+                          void (* inInterruptServiceRoutine) (void)) {
+  uint32_t errorCode = 0 ; // Means no error
+//----------------------------------- check mINT has interrupt capability
+  const int8_t itPin = digitalPinToInterrupt (mINT) ;
+  if (itPin == NOT_AN_INTERRUPT) {
+    errorCode = kINTPinIsNotAnInterrupt ;
+  }
+//----------------------------------- check isr is not NULL
+  if (inInterruptServiceRoutine == NULL) {
+    errorCode |= kISRIsNull ;
+  }
+//----------------------------------- if no error, configure port and MCP2515
+  if (errorCode == 0) {
+  //--- Configure ports
+    pinMode (mCS, OUTPUT) ;
+    digitalWrite (mCS, HIGH) ;  // CS is high outside a command
+    mSPI->begin () ;
+  //--- Send software reset to MCP2515
+    mSPI->beginTransaction (mSPISettings) ;
+      select () ;
+        mSPI->transfer (RESET_COMMAND) ;
+      unselect () ;
     mSPI->endTransaction () ;
-  interrupts () ;
+  //---
+    delayMicroseconds (10) ;
+  //--- Configure MCP2515_IRQ as external interrupt
+    pinMode (mINT, INPUT_PULLUP) ;
+    attachInterrupt (itPin, inInterruptServiceRoutine, LOW) ;
+    mSPI->usingInterrupt (itPin) ;
+  //--- Internal begin
+    errorCode = internalBeginOperation (inSettings) ;
+  }
 //----------------------------------- Return
   return errorCode ;
 }
@@ -105,17 +116,15 @@ bool ACAN2515::tryToSend (const CANMessage & inMessage) {
     idx = 0 ;
   }
 //---
-  noInterrupts () ;
+  mSPI->beginTransaction (mSPISettings) ;
     bool ok = mTXBIsFree [idx] ;
     if (ok) { // Transmit buffer and TXB are both free: transmit immediatly
       mTXBIsFree [idx] = false ;
-      mSPI->beginTransaction () ;
-        internalSendMessage (inMessage, idx) ;
-      mSPI->endTransaction () ;
+      internalSendMessage (inMessage, idx) ;
     }else{ // Enter in transmit buffer, if not full
       ok = mTransmitBuffer [idx].append (inMessage) ;
     }
-  interrupts () ;
+  mSPI->endTransaction () ;
   return ok ;
 }
 
@@ -124,30 +133,20 @@ bool ACAN2515::tryToSend (const CANMessage & inMessage) {
 //——————————————————————————————————————————————————————————————————————————————
 
 bool ACAN2515::available (void) {
-  noInterrupts () ;
+  mSPI->beginTransaction (mSPISettings) ;
     const bool hasReceivedMessage = mReceiveBuffer.count () > 0 ;
-  interrupts () ;
+  mSPI->endTransaction () ;
   return hasReceivedMessage ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————
 
 bool ACAN2515::receive (CANMessage & outMessage) {
-  noInterrupts () ;
+  mSPI->beginTransaction (mSPISettings) ;
     const bool hasReceivedMessage = mReceiveBuffer.remove (outMessage) ;
-  interrupts () ;
+  mSPI->endTransaction () ;
 //---
   return hasReceivedMessage ;
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-//   POLLING
-//——————————————————————————————————————————————————————————————————————————————
-
-void ACAN2515::polling (void) {
-  noInterrupts () ;
-    isr () ;
-  interrupts () ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————
@@ -156,28 +155,25 @@ void ACAN2515::polling (void) {
 
 uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings) {
   uint32_t errorCode = 0 ; // Ok be default
-//----------------------------------- Send software reset to MCP2515
-  mSPI->select () ;
-  mSPI->sendByte (RESET_COMMAND) ;
-  mSPI->unselect () ;
- //---
-  delayMicroseconds (10) ;
 //----------------------------------- Check if MCP2515 is accessible
-  write2515Register (CNF1_REGISTER, 0x55) ;
-  bool ok = read2515Register (CNF1_REGISTER) == 0x55 ;
-  if (ok) {
-    write2515Register (CNF1_REGISTER, 0xAA) ;
-    ok = read2515Register (CNF1_REGISTER) == 0xAA ;
-  }
-  if (!ok) {
-    errorCode = kNoMCP2515 ;
-  }
+  mSPI->beginTransaction (mSPISettings) ;
+    write2515Register (CNF1_REGISTER, 0x55) ;
+    bool ok = read2515Register (CNF1_REGISTER) == 0x55 ;
+    if (ok) {
+      write2515Register (CNF1_REGISTER, 0xAA) ;
+      ok = read2515Register (CNF1_REGISTER) == 0xAA ;
+    }
+    if (!ok) {
+      errorCode = kNoMCP2515 ;
+    }
+  mSPI->endTransaction () ;
 //----------------------------------- If ok, check if settings are correct
   if (!inSettings.mBitSettingOk) {
     errorCode |= kInvalidSettings ;
   }
 //----------------------------------- If ok, perform configuration
   if (errorCode == 0) {
+    mSPI->beginTransaction (mSPISettings) ;
   //----------------------------------- Allocate receive buffer
     mReceiveBuffer.initWithSize (inSettings.mReceiveBufferSize) ;
   //----------------------------------- Allocate transmit buffers
@@ -188,9 +184,9 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings) 
     mTXBIsFree [1] = true ;
     mTXBIsFree [2] = true ;
   //----------------------------------- Set CNF3, CNF2, CNF1 and CANINTE registers
-    mSPI->select () ;
-    mSPI->sendByte (WRITE_COMMAND) ;
-    mSPI->sendByte (CNF3_REGISTER) ;
+    select () ;
+    mSPI->transfer (WRITE_COMMAND) ;
+    mSPI->transfer (CNF3_REGISTER) ;
   //--- Register CNF3:
   //  Bit 7: SOF
   //  bit 6 --> 0: No Wake-up Filter bit
@@ -200,7 +196,7 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings) 
       ((inSettings.mSignalOnCLKOUT_SOF_pin == ACAN2515SignalOnCLKOUT_SOF_pin::SOF) << 6) /* SOF */ |
       ((inSettings.mPhaseSegment2 - 1) << 0) /* PHSEG2 */
     ;
-   mSPI->sendByte (cnf3) ;
+   mSPI->transfer (cnf3) ;
   //--- Register CNF2:
   //  Bit 7 --> 1: BLTMODE
   //  bit 6: SAM
@@ -212,7 +208,7 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings) 
       ((inSettings.mPhaseSegment1 - 1) << 3) /* PHSEG1 */ |
       ((inSettings.mPropagationSegment - 1) << 0) /* PRSEG */
     ;
-    mSPI->sendByte (cnf2) ;
+    mSPI->transfer (cnf2) ;
   //--- Register CNF1:
   //  Bit 7-6: SJW - 1
   //  Bit 5-0: BRP - 1
@@ -220,7 +216,7 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings) 
       (inSettings.mSJW << 6) /* SJW */ |
       ((inSettings.mBitRatePrescaler - 1) << 0) /* BRP */
     ;
-    mSPI->sendByte (cnf1) ;
+    mSPI->transfer (cnf1) ;
   //--- Register CANINTE: activate interrupts
   //  Bit 7 --> 0: MERRE
   //  Bit 6 --> 0: WAKIE
@@ -230,8 +226,8 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings) 
   //  Bit 2 --> 1: TX0IE
   //  Bit 1 --> 1: RX1IE
   //  Bit 0 --> 1: RX0IE
-    mSPI->sendByte (0x1F) ;
-    mSPI->unselect () ;
+    mSPI->transfer (0x1F) ;
+    unselect () ;
   //----------------------------------- Deactivate the RXnBF Pins (High Impedance State)
     write2515Register (BFPCTRL_REGISTER, 0) ;
   //----------------------------------- Set TXnRTS as inputs
@@ -249,9 +245,9 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings) 
     setupMaskRegister (inSettings.mRXF4, RXF4SIDH_REGISTER) ;
     setupMaskRegister (inSettings.mRXF5, RXF5SIDH_REGISTER) ;
   //----------------------------------- Set TXBi priorities
-     write2515Register (TXB0CTRL_REGISTER, inSettings.mTXBPriority & 3) ;
-     write2515Register (TXB1CTRL_REGISTER, (inSettings.mTXBPriority >> 2) & 3) ;
-     write2515Register (TXB2CTRL_REGISTER, (inSettings.mTXBPriority >> 4) & 3) ;
+    write2515Register (TXB0CTRL_REGISTER, inSettings.mTXBPriority & 3) ;
+    write2515Register (TXB1CTRL_REGISTER, (inSettings.mTXBPriority >> 2) & 3) ;
+    write2515Register (TXB2CTRL_REGISTER, (inSettings.mTXBPriority >> 4) & 3) ;
   //----------------------------------- Reset device to requested mode
     uint8_t canctrl = inSettings.mOneShotModeEnabled ? (1 << 3) : 0 ;
     switch (inSettings.mSignalOnCLKOUT_SOF_pin) {
@@ -287,11 +283,19 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings) 
     }
   //--- Request mode
     write2515Register (CANCTRL_REGISTER, canctrl | requestedMode) ;
-  //--- Wait until requested mode is reached
+    mSPI->endTransaction () ;
+  //--- Wait until requested mode is reached (during 1 or 2 ms)
     bool wait = true ;
+    const uint32_t deadline = millis () + 2 ;
     while (wait) {
-      const uint8_t actualMode = read2515Register (CANSTAT_REGISTER) & 0xE0 ;
+      mSPI->beginTransaction (mSPISettings) ;
+        const uint8_t actualMode = read2515Register (CANSTAT_REGISTER) & 0xE0 ;
+      mSPI->endTransaction () ;
       wait = actualMode != requestedMode ;
+      if (wait && (millis () >= deadline)) {
+        errorCode |= kRequestedModeTimeOut ;
+        wait = false ;
+      }
     }
   }
 //-----------------------------------
@@ -301,7 +305,7 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings) 
 //——————————————————————————————————————————————————————————————————————————————
 
 void ACAN2515::isr (void) {
-  mSPI->beginTransaction () ;
+  mSPI->beginTransaction (mSPISettings) ;
   uint8_t itStatus = read2515Register (CANSTAT_REGISTER) & 0x0E ;
   while (itStatus != 0) {
     switch (itStatus) {
@@ -342,16 +346,16 @@ void ACAN2515::handleRXBInterrupt (void) {
     message.rtr = (rxStatus & 0x10) != 0 ;
     message.ext = (rxStatus & 0x08) != 0 ;
     message.idx = rxStatus & 0x07 ;
-    mSPI->select () ;
-    mSPI->sendByte (accessRXB0 ? READ_FROM_RXB0SIDH_COMMAND : READ_FROM_RXB1SIDH_COMMAND) ;
+    select () ;
+    mSPI->transfer (accessRXB0 ? READ_FROM_RXB0SIDH_COMMAND : READ_FROM_RXB1SIDH_COMMAND) ;
   //--- SIDH
-    message.id = mSPI->readByte () ;
+    message.id = mSPI->transfer (0) ;
   //--- SIDL
-    const uint32_t sidl = mSPI->readByte () ;
+    const uint32_t sidl = mSPI->transfer (0) ;
     message.id <<= 3 ;
     message.id |= sidl >> 5 ;
   //--- EID8
-    const uint32_t eid8 = mSPI->readByte () ;
+    const uint32_t eid8 = mSPI->transfer (0) ;
     if (message.ext) {
       message.id <<= 2 ;
       message.id |= (sidl & 0x03) ;
@@ -359,20 +363,20 @@ void ACAN2515::handleRXBInterrupt (void) {
       message.id |= eid8 ;
     }
   //--- EID0
-    const uint32_t eid0 = mSPI->readByte () ;
+    const uint32_t eid0 = mSPI->transfer (0) ;
     if (message.ext) {
       message.id <<= 8 ;
       message.id |= eid0 ;
     }
   //--- DLC
-    const uint8_t dlc = mSPI->readByte () ;
+    const uint8_t dlc = mSPI->transfer (0) ;
     message.len = dlc & 0x0F ;
   //--- Read data
     for (int i=0 ; i<message.len ; i++) {
-      message.data [i] = mSPI->readByte () ;
+      message.data [i] = mSPI->transfer (0) ;
     }
   //---
-    mSPI->unselect () ;
+    unselect () ;
   //--- Free receive buffer command
     bitModify2515Register (CANINTF_REGISTER, accessRXB0 ? 0x01 : 0x02, 0) ;
   //--- Enter received message in receive buffer (if not full)
@@ -408,28 +412,28 @@ void ACAN2515::internalSendMessage (const CANMessage & inFrame, const uint8_t in
 //      Load TXB0, start at TXB0SIDH: 0x40
 //      Load TXB1, start at TXB1SIDH: 0x42
 //      Load TXB2, start at TXB2SIDH: 0x44
-  const uint8_t loadTxBuffer = LOAD_TX_BUFFER_COMMAND | (inTXB << 1) ;
+  const uint8_t loadTxBufferCommand = LOAD_TX_BUFFER_COMMAND | (inTXB << 1) ;
 //--- Send message
-  mSPI->select () ;
-  mSPI->sendByte (loadTxBuffer) ;
+  select () ;
+  mSPI->transfer (loadTxBufferCommand) ;
   if (inFrame.ext) { // Extended frame
     uint32_t v = inFrame.id >> 21 ;
-    mSPI->sendByte ((uint8_t) v) ; // ID28 ... ID21 --> SIDH
+    mSPI->transfer ((uint8_t) v) ; // ID28 ... ID21 --> SIDH
     v  = (inFrame.id >> 13) & 0xE0 ; // ID20, ID19, ID18 in bits 7, 6, 5
     v |= (inFrame.id >> 16) & 0x03 ; // ID17, ID16 in bits 1, 0
     v |= 0x08 ; // Extended bit
-    mSPI->sendByte ((uint8_t) v) ; // ID20, ID19, ID18, -, 1, -, ID17, ID16 --> SIDL
+    mSPI->transfer ((uint8_t) v) ; // ID20, ID19, ID18, -, 1, -, ID17, ID16 --> SIDL
     v  = (inFrame.id >> 8) & 0xFF ; // ID15, ..., ID8
-    mSPI->sendByte ((uint8_t) v) ; // ID15, ID14, ID13, ID12, ID11, ID10, ID9, ID8 --> EID8
+    mSPI->transfer ((uint8_t) v) ; // ID15, ID14, ID13, ID12, ID11, ID10, ID9, ID8 --> EID8
     v  = inFrame.id & 0xFF ; // ID7, ..., ID0
-    mSPI->sendByte ((uint8_t) v) ; // ID7, ID6, ID5, ID4, ID3, ID2, ID1, ID0 --> EID0
+    mSPI->transfer ((uint8_t) v) ; // ID7, ID6, ID5, ID4, ID3, ID2, ID1, ID0 --> EID0
   }else{ // Standard frame
     uint32_t v = inFrame.id >> 3 ;
-    mSPI->sendByte ((uint8_t) v) ; // ID10 ... ID3 --> SIDH
+    mSPI->transfer ((uint8_t) v) ; // ID10 ... ID3 --> SIDH
     v  = (inFrame.id << 5) & 0xE0 ; // ID2, ID1, ID0 in bits 7, 6, 5
-    mSPI->sendByte ((uint8_t) v) ; // ID2, ID1, ID0, -, 0, -, 0, 0 --> SIDL
-    mSPI->sendByte (0x00) ; // any value --> EID8
-    mSPI->sendByte (0x00) ; // any value --> EID0
+    mSPI->transfer ((uint8_t) v) ; // ID2, ID1, ID0, -, 0, -, 0, 0 --> SIDL
+    mSPI->transfer (0x00) ; // any value --> EID8
+    mSPI->transfer (0x00) ; // any value --> EID0
   }
 //--- DLC
   uint8_t v = inFrame.len ;
@@ -439,60 +443,60 @@ void ACAN2515::internalSendMessage (const CANMessage & inFrame, const uint8_t in
   if (inFrame.rtr) {
     v |= 0x40 ;
   }
-  mSPI->sendByte (v) ;
+  mSPI->transfer (v) ;
 //--- Send data
   if (!inFrame.rtr) {
     for (unsigned i=0 ; i<inFrame.len ; i++) {
-      mSPI->sendByte (inFrame.data [i]) ;
+      mSPI->transfer (inFrame.data [i]) ;
     }
   }
-  mSPI->unselect () ;
+  unselect () ;
 //--- Write send command
-  mSPI->select () ;
-  mSPI->sendByte (sendCommand) ;
-  mSPI->unselect () ;
+  select () ;
+    mSPI->transfer (sendCommand) ;
+  unselect () ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————
-//  INTERNAL SPI FUNCTIONS (INTERRUPTS ARE DISABLED WHEN THEY ARE EXECUTED)
+//  INTERNAL SPI FUNCTIONS
 //——————————————————————————————————————————————————————————————————————————————
 
 void ACAN2515::write2515Register (const uint8_t inRegister, const uint8_t inValue) {
-  mSPI->select () ;
-  mSPI->sendByte (WRITE_COMMAND) ;
-  mSPI->sendByte (inRegister) ;
-  mSPI->sendByte (inValue) ;
-  mSPI->unselect () ;
+  select () ;
+    mSPI->transfer (WRITE_COMMAND) ;
+    mSPI->transfer (inRegister) ;
+    mSPI->transfer (inValue) ;
+  unselect () ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————
 
 uint8_t ACAN2515::read2515Register (const uint8_t inRegister) {
-  mSPI->select () ;
-  mSPI->sendByte (READ_COMMAND) ;
-  mSPI->sendByte (inRegister) ;
-  const uint8_t readValue = mSPI->readByte () ;
-  mSPI->unselect () ;
+  select () ;
+    mSPI->transfer (READ_COMMAND) ;
+    mSPI->transfer (inRegister) ;
+    const uint8_t readValue = mSPI->transfer (0) ;
+  unselect () ;
   return readValue ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————
 
 uint8_t ACAN2515::read2515Status (void) {
-  mSPI->select () ;
-  mSPI->sendByte (READ_STATUS_COMMAND) ;
-  const uint8_t readValue = mSPI->readByte () ;
-  mSPI->unselect () ;
+  select () ;
+    mSPI->transfer (READ_STATUS_COMMAND) ;
+    const uint8_t readValue = mSPI->transfer (0) ;
+  unselect () ;
   return readValue ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————
 
 uint8_t ACAN2515::read2515RxStatus (void) {
-  mSPI->select () ;
-  mSPI->sendByte (RX_STATUS_COMMAND) ;
-  const uint8_t readValue = mSPI->readByte () ;
-  mSPI->unselect () ;
+  select () ;
+    mSPI->transfer (RX_STATUS_COMMAND) ;
+    const uint8_t readValue = mSPI->transfer (0) ;
+  unselect () ;
   return readValue ;
 }
 
@@ -501,26 +505,25 @@ uint8_t ACAN2515::read2515RxStatus (void) {
 void ACAN2515::bitModify2515Register (const uint8_t inRegister,
                                       const uint8_t inMask,
                                       const uint8_t inData) {
-  mSPI->select () ;
-  mSPI->sendByte (BIT_MODIFY_COMMAND) ;
-  mSPI->sendByte (inRegister) ;
-  mSPI->sendByte (inMask) ;
-  mSPI->sendByte (inData) ;
-  mSPI->unselect () ;
+  select () ;
+    mSPI->transfer (BIT_MODIFY_COMMAND) ;
+    mSPI->transfer (inRegister) ;
+    mSPI->transfer (inMask) ;
+    mSPI->transfer (inData) ;
+  unselect () ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————
 
 void ACAN2515::setupMaskRegister (const ACAN2515Mask inMask, const uint8_t inRegister) {
-  mSPI->select () ;
-  mSPI->sendByte (WRITE_COMMAND) ;
-  mSPI->sendByte (inRegister) ;
-  mSPI->sendByte (inMask.mSIDH) ;
-  mSPI->sendByte (inMask.mSIDL) ;
-  mSPI->sendByte (inMask.mEID8) ;
-  mSPI->sendByte (inMask.mEID0) ;
-  mSPI->unselect () ;
+  select () ;
+    mSPI->transfer (WRITE_COMMAND) ;
+    mSPI->transfer (inRegister) ;
+    mSPI->transfer (inMask.mSIDH) ;
+    mSPI->transfer (inMask.mSIDL) ;
+    mSPI->transfer (inMask.mEID8) ;
+    mSPI->transfer (inMask.mEID0) ;
+  unselect () ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————
-

@@ -11,7 +11,6 @@
 
 #include <ACAN.h>      // For the Teensy 3.x builtin CAN
 #include <ACAN2515.h>  // For the external MCP2515
-#include <SPI.h>
 
 //——————————————————————————————————————————————————————————————————————————————
 // Select CAN baud rate.
@@ -34,12 +33,16 @@ static const byte MCP2515_CS  = 20 ; // CS input of MCP2515
 static const byte MCP2515_SCK = 27 ; // SCK input of MCP2515 
 static const byte MCP2515_SI  = 28 ; // SI input of MCP2515  
 static const byte MCP2515_SO  = 39 ; // SO output of MCP2515 
-static const byte MCP2515_IRQ = 37 ; // INT output of MCP2515
+static const byte MCP2515_INT = 37 ; // INT output of MCP2515
 
 //——————————————————————————————————————————————————————————————————————————————
+//  MCP2515 Driver object
+//——————————————————————————————————————————————————————————————————————————————
 
-ACAN2515 can (MCP2515_CS, SPI) ;
+ACAN2515 can (MCP2515_CS, SPI, MCP2515_INT) ;
 
+//——————————————————————————————————————————————————————————————————————————————
+//  MCP2515 Interrupt Service Routine
 //——————————————————————————————————————————————————————————————————————————————
 
 void canISR (void) {
@@ -52,6 +55,8 @@ void canISR (void) {
 
 static const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 
+//——————————————————————————————————————————————————————————————————————————————
+//   SETUP
 //——————————————————————————————————————————————————————————————————————————————
 
 void setup () {
@@ -69,12 +74,9 @@ void setup () {
   SPI.setMOSI (MCP2515_SI) ;
   SPI.setMISO (MCP2515_SO) ;
   SPI.setSCK (MCP2515_SCK) ;
-//--- Configure MCP2515_IRQ as external input
-  pinMode (MCP2515_IRQ, INPUT_PULLUP) ;
-  attachInterrupt (digitalPinToInterrupt (MCP2515_IRQ), canISR, LOW) ;
 //--- Configure ACAN2515
   ACANSettings2515 settings2515 (QUARTZ_FREQUENCY, CAN_BIT_RATE) ;
-  const uint32_t errorCode2515 = can.begin (settings2515) ;
+  const uint32_t errorCode2515 = can.begin (settings2515, canISR) ;
   if (errorCode2515 == 0) {
     Serial.println ("ACAN2515 configuration: ok") ;
   }else{

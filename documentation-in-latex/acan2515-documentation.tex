@@ -343,13 +343,13 @@ The \texttt{ACAN2515} library is a MCP2515 CAN ("Controller Area Network") Contr
   \item default configuration sends and receives any frame -- no default filter to provide;
   \item efficient built-in CAN bit settings computation from user bit rate;
   \item user can fully define its own CAN bit setting values;
-  \item supports both software SPI and hardware SPI;
-%  \item reception filters are easily defined -- up to 14 primary filters and 18 secondary filters;
-%  \item reception filters accept call back functions;
-%  \item driver transmit buffer size is customisable;
-%  \item driver receive buffer size is customisable;
-%  \item overflow of the driver receive buffer is detectable;
-%  \item \emph{loop back}, \emph{self reception}, \emph{listing only} FlexCAN controller modes are selectable;
+%  \item supports both software SPI and hardware SPI;
+  \item all reception filter registers are easily defined (2 mask registers, 6 acceptance registers);
+  \item reception filters accept call back functions;
+  \item driver transmit buffer sizes are customisable;
+  \item driver receive buffer size is customisable;
+  \item overflow of the driver receive buffer is detectable;
+  \item \emph{loop back}, \emph{self reception}, \emph{listing only} MCP2515 controller modes are selectable;
 %  \item \texttt{Tx} pin can be configured as open collector;
 %  \item internal pullup can be enabled for \texttt{Rx} pin.
 \end{itemize}
@@ -409,10 +409,10 @@ The \refFigure{}{figureStructureStationCAN} illustrates message flow for sending
   % TxD
     %\draw (6.25, .5) node[above] {\texttt{CAN Tx}};
     \draw[->] (6.75, 1) -- ++ (0, -1) ;
-    \draw (6.75, 0.5) node[fill=white, draw] {\texttt{CAN Tx}};
+    \draw (6.75, 0.5) node[fill=white, draw] {\texttt{TXCAN}};
   % RxD
     \draw[<-] (8.75, 1) -- ++ (0, -1) ;
-    \draw (8.75, 0.5) node[fill=white, draw] {\texttt{CAN Rx}};
+    \draw (8.75, 0.5) node[fill=white, draw] {\texttt{RXCAN}};
   %  FlexCAN transmit data Buffer 0
     \draw[fill=white] (1, 4.5) rectangle ++ (3, 1.5);
     \draw (2.5, 5.25) node {\tt TXB0};
@@ -427,7 +427,7 @@ The \refFigure{}{figureStructureStationCAN} illustrates message flow for sending
     \draw (13, 3.25) node {\emph{Reception filters}};
   %  Rx Buffers
     \draw[fill=white] (11.5, 4.5) rectangle ++ (3, 1.5);
-    \draw (13, 5.25) node {\emph{Reception FIFO}};
+    \draw (13, 5.25) node {\emph{Reception Registers}};
   \end{tikzpicture}
   \caption{Message flow in \texttt{ACAN2515} driver and MCP2515 CAN controller}
   \labelFigure{figureStructureStationCAN}
@@ -458,95 +458,193 @@ The \refFigure{}{figureStructureStationCAN} illustrates message flow for sending
 
 
 
-{\bf Receiving messages.} The MCP2515 \emph{CAN Protocol Engine} transmits all correct frames to the \emph{reception filters}. By default, they are configured as pass-all, see \refSectionPage{primaryFilters} and  \refSectionPage{secondaryFilters} for configuring them. Messages that pass the filters are stored in the \emph{Reception FIFO}. Its depth is not configurable -- it is always 2-message. The message interrupt service routine transfers the messages from \emph{Reception FIFO} to the \emph{Driver Receive Buffer}. The size of the \emph{Driver Receive Buffer} is 32 by default -- see \refSubsectionPage{driverReceiveBufferSize} for changing the default value. Three user methods are available:
+{\bf Receiving messages.} The MCP2515 \emph{CAN Protocol Engine} transmits all correct frames to the \emph{reception filters}. By default, they are configured as pass-all, see \refSectionPage{primaryFilters} and  \refSectionPage{secondaryFilters} for configuring them. Messages that pass the filters are stored in the \emph{Reception Registers} (\texttt{RXB0} and \texttt{RXB1}). The interrupt service routine transfers the messages from these registers to the \emph{Driver Receive Buffer}. The size of the \emph{Driver Receive Buffer} is 32 by default -- see \refSubsectionPage{driverReceiveBufferSize} for changing the default value. Three user methods are available:
 \begin{itemize}
   \item the \texttt{available} method returns \texttt{false} if the \emph{Driver Receive Buffer} is empty, and \texttt{true} otherwise;
   \item the \texttt{receive} method retrieves messages from the \emph{Driver Receive Buffer} -- see \refSectionPage{UsingReceiveMethod}, \refSubsectionPage{usingIDXvalue} and \refSubsectionPage{usingIDXvalueWithSecondaryFilter};
-  \item the \texttt{dispatchReceivedMessage} method if you have defined primary and / or secondary filters that name a call-back function -- see \refSectionPage{UsingDispatchMethod}.
+  \item the \texttt{dispatchReceivedMessage} method if you have defined the reception filters that name a call-back function -- see \refSectionPage{UsingDispatchMethod}.
 \end{itemize}
 
-{\bf Sequentiality.} The \texttt{ACAN2515} driver and the configuration of the \texttt{MCP2515} controller can ensure sequentiality of data messages\footnote{Sequentiality means that if an user program calls \texttt{tryToSend} first for a message $M_1$ and then for a message $M_2$, the message $M_1$ will be always retrieved by \texttt{receive} or \texttt{dispatchReceivedMessage} before the message $M_2$.}. The reception part of the \texttt{ACAN2515} ensures sequentiality. The emission part of the \texttt{ACAN2515} ensures sequentiality \emph{for a given transmit buffer}: if an user program calls \texttt{tryToSend} first for a message $M_1$ specifying the $B_i$ buffer and then for a message $M_2$ specifying the same buffer, the driver ensures that $M_1$ will be sent on the CAN bus before $M_2$. However, if $M_2$ specifies an other buffer, there is no guarantee that $M_1$ will appear on the bus before $M_2$. 
+{\bf Sequentiality.} The \texttt{ACAN2515} driver and the configuration of the \texttt{MCP2515} controller can ensure sequentiality of data messages\footnote{Sequentiality means that if an user program calls \texttt{tryToSend} first for a message $M_1$ and then for a message $M_2$, the message $M_1$ will be always retrieved by \texttt{receive} or \texttt{dispatchReceivedMessage} before the message $M_2$.}, under some conditions. The driver ensures the sequentiality of the emissions, provided that you use only one transmit buffer: if an user program calls \texttt{tryToSend} first for a message $M_1$ specifying the $B_i$ buffer and then for a message $M_2$ specifying the same buffer, the driver ensures that $M_1$ will be sent on the CAN bus before $M_2$. However, if $M_2$ specifies an other buffer, there is no guarantee that $M_1$ will appear on the bus before $M_2$. In reception, the driver ensures sequentiality based on the reception filters: if a received message $M_1$ passes a given filter, and then a received message $M_2$ passes the same filter, then the messages are retrieved in this order by the \texttt{receive} or the \texttt{dispatchReceivedMessage} methods.
 
 
 
 \section{A simple example: \texttt{LoopBackDemo}}
 
-The following code is a sample code for introducing the \texttt{ACAN} library. It runs on Teensy 3.1 / 3.2, Teensy 3.5 and Teensy 3.6. It demonstrates how to configure the driver, to send a CAN message, and to receive a CAN message.
+The following code is a sample code for introducing the \texttt{ACAN2515} library, extracted from the \texttt{LoopBackDemo} sample code included in the library distribution. It runs natively on Teensy 3.5 using \texttt{SPI} alternate pins, but is easily adaptable to any microcontroller supporting \texttt{SPI}. It demonstrates how to configure the driver, to send a CAN message, and to receive a CAN message.
 
-Note it runs without any external hardware, it uses the \emph{loop back} mode and the \emph{self reception} mode.
+Note: this code runs without any CAN transceiver (the \texttt{TXCAN} and \texttt{RXCAN} pins of the \texttt{MCP2515} are left open), the \texttt{MCP2515} is configured with the \emph{loop back} setting on.
 
-{ \small\begin{lstlisting}[language=c++,numbers=left]
-#include <ACAN.h>
+{ \small\begin{lstlisting}[language=c++]
+#include <ACAN2515.h>
+\end{lstlisting}}
 
-void setup () {
-  Serial.begin (9600) ;
-  Serial.println ("Hello") ;
-  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ; // 125 kbit/s
-  settings.mLoopBackMode = true ;
-  settings.mSelfReceptionMode = true ;
-  const uint32_t errorCode = can.begin (settings) ;
-  if (0 == errorCode) {
-    Serial.println ("can ok") ;
-  }else{
-    Serial.print ("Error can: 0x") ;
-    Serial.println (errorCode, HEX) ;
-  }
-}
+This line includes the \texttt{ACAN2515} library.
 
-static unsigned gSendDate = 0 ;
-static unsigned gSentCount = 0 ;
-static unsigned gReceivedCount = 0 ;
+{ \small\begin{lstlisting}[language=c++]
+static const byte MCP2515_SCK = 27 ; // SCK input of MCP2515 
+static const byte MCP2515_SI  = 28 ; // SI input of MCP2515  
+static const byte MCP2515_SO  = 39 ; // SO output of MCP2515 
+\end{lstlisting}}
+Define the \texttt{SPI} alternate pins. This is actually required if you uses \texttt{SPI} alternate pins.
 
-void loop () {
-  CANMessage message ;
-  if (gSendDate < millis ()) {
-    message.id = 0x542 ;
-    const bool ok = can.tryToSend (message) ;
-    if (ok) {
-      gSendDate += 2000 ;
-      gSentCount += 1 ;
-      Serial.print ("Sent: ") ;
-      Serial.println (gSentCount) ;
-    }
-  }
-  if (can.receive (message)) {
-    gReceivedCount += 1 ;
-    Serial.print ("Received: ") ;
-    Serial.println (gReceivedCount) ;
-  }
+
+{ \small\begin{lstlisting}[language=c++]
+static const byte MCP2515_CS  = 20 ; // CS input of MCP2515 
+static const byte MCP2515_INT = 37 ; // INT output of MCP2515
+\end{lstlisting}}
+Define the pins connected to $\overline{\texttt{CS}}$ and $\overline{\texttt{INT}}$ pins.
+
+
+
+
+{ \small\begin{lstlisting}[language=c++]
+ACAN2515 can (MCP2515_CS, SPI, MCP2515_INT) ;
+\end{lstlisting}}
+Instanciation of the \texttt{ACAN2515} library, declaration and initialization of the \texttt{can} object that implements the driver. The constructor names: the number of the pin connected to the $\overline{\texttt{CS}}$ pin, the \texttt{SPI} object (you can use \texttt{SPI1}, \texttt{SPI2}, …), the number of the pin connected to the $\overline{\texttt{INT}}$ pin.
+
+{ \small\begin{lstlisting}[language=c++]
+void canISR (void) {
+  can.isr () ;
 }
 \end{lstlisting}}
 
-{\bf Line 1.} This line includes the \texttt{ACAN} library.
-
-{\bf Line 6.} Configuration is a four-step operation. This line is the first step. It instanciates the \texttt{settings} object of the \texttt{ACAN2515Settings} class. The constructor has one parameter: the wished CAN bit rate. It returns a \texttt{settings} object fully initialized with CAN bit settings for the wished bit rate, and default values for other configuration properties.
-
-{\bf Lines 7 and 8.} This is the second step. You can override the values of the properties of \texttt{settings} object. Here, the \texttt{mLoopBackMode} and \texttt{mSelfReceptionMode} properties are set to \texttt{true} -- they are \texttt{false} by default. Theses two properties fully enables \emph{loop back}, that is you can run this demo sketch even it you have no connection to a physical CAN network. The \refSubsectionPage{propertiesACAN2515Settings} lists all properties you can override.
-
-{\bf Line 9.} This is the third step, configuration of the \texttt{can} driver with \texttt{settings} values. You cannot change the \texttt{can} name -- see \refSectionPage{driverInstances}. The driver is configured for being able to send any (standard / extended, data / remote) frame, and to receive all (standard / extended, data / remote) frames. If you want to define reception filters, see \refSectionPage{primaryFilters} and  \refSectionPage{secondaryFilters}.
-
-{\bf Lines 10 to 15.} Last step: the configuration of the \texttt{can} driver returns an error code, stored in the \texttt{errorCode} constant. It has the value $0$ if all is ok -- see \refSubsectionPage{errorCodeMethodBegin}.
-
-{\bf Line 18.} The \texttt{gSendDate} global variable is used for sending a CAN message every 2 s.
-
-{\bf Line 19.} The \texttt{gSentCount} global variable counts the number of sent messages.
-
-{\bf Line 20.} The \texttt{gReceivedCount} global variable counts the number of received messages.
+The driver requires an \emph{interrupt service routine}: one instruction is required, calling the \texttt{isr} method of the driver object.
 
 
-{\bf Line 23.} The \texttt{message} object is fully initialized by the default constructor, it represents a standard data frame, with an identifier equal to $0$, and without any data -- see \refSectionPage{CANMessageClass}. 
 
-{\bf Line 24.} It tests if it is time to send a message.
 
-{\bf Line 25.} Set the message identifier. In a real code, we set here message data, and for an extended frame the \texttt{ext} boolean property.
+{ \small\begin{lstlisting}[language=c++]
+static const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
+\end{lstlisting}}
 
-{\bf Line 26.} We try to send the data message. Actually, we try to transfer it into the \emph{Driver transmit buffer}. The transfer succeeds if the buffer is not full. The \texttt{tryToSend} method returns \texttt{false} if the buffer is full, and \texttt{true} otherwise. Note the returned value only tells if the transfer into the \emph{Driver transmit buffer} is successful or not: we have no way to know if the frame is actually sent on the the CAN network.
+Specifies the frequency of the \texttt{MCP2515} quartz.
 
-{\bf Lines 27 to 32.} We act the successfull transfer by setting \texttt{gSendDate} to the next send date and incrementing the \texttt{gSentCount} variable. Note if the transfer did fail, the send date is not changed, so the \texttt{tryToSend} method will be called on the execution of the \texttt{loop} function.
 
-{\bf Line 34.} As the FlexCAN controller is configured in \emph{loop back} mode (see lines 7 and 8), all sent messages are received. The \texttt{receive} method returns \texttt{false} if no message is available from the \emph{driver reception buffer}. It returns \texttt{true} if a message has been successfully removed from the \emph{driver reception buffer}. This message is assigned to the \texttt{message} object.
 
-{\bf Lines 35 to 37.} It a message has been received, the \texttt{gReceivedCount} is incremented ans displayed.
+
+
+
+
+
+{ \small\begin{lstlisting}[language=c++]
+void setup () {
+//--- Switch on builtin led
+  pinMode (LED_BUILTIN, OUTPUT) ;
+  digitalWrite (LED_BUILTIN, HIGH) ;
+//--- Start serial
+  Serial.begin (38400) ;
+//--- Wait for serial (blink led at 10 Hz during waiting)
+  while (!Serial) {
+    delay (50) ;
+    digitalWrite (LED_BUILTIN, !digitalRead (LED_BUILTIN)) ;
+  }
+\end{lstlisting}}
+Builtin led is used for signaling. It blinks led at 10 Hz during until serial monitor is ready.
+
+
+
+{ \small\begin{lstlisting}[language=c++]
+  SPI.setMOSI (MCP2515_SI) ;
+  SPI.setMISO (MCP2515_SO) ;
+  SPI.setSCK (MCP2515_SCK) ;
+\end{lstlisting}}
+In this sketch, we use \texttt{SPI} alternate pins. These functions are dedicated to Teensy 3.x\footnote{See \url{https://www.pjrc.com/teensy/td_libs_SPI.html}}. Other platforms have similar functions.
+
+{ \small\begin{lstlisting}[language=c++]
+  Serial.println ("Configure ACAN2515") ;
+  ACANSettings2515 settings (QUARTZ_FREQUENCY, 125 * 1000) ;
+\end{lstlisting}}
+
+Configuration is a four-step operation. This line is the first step. It instanciates the \texttt{settings} object of the \texttt{ACAN2515Settings} class. The constructor has two parameters: the \texttt{MCP2515} quartz frequency, and the wished CAN bit rate (here, 125 kb/s). It returns a \texttt{settings} object fully initialized with CAN bit settings for the wished bit rate, and default values for other configuration properties.
+
+
+
+
+
+
+{ \small\begin{lstlisting}[language=c++]
+  settings.mRequestedMode = ACAN2515RequestedMode::LoopBackMode ;
+\end{lstlisting}}
+This is the second step. You can override the values of the properties of \texttt{settings} object. Here, the \texttt{mRequestedMode} property is set to \texttt{true} -- it is \texttt{false} by default. Setting this property enables \emph{loop back}, that is you can run this demo sketch even it you have no connection to a physical CAN network. The \refSubsectionPage{propertiesACAN2515Settings} lists all properties you can override.
+
+
+
+
+
+{ \small\begin{lstlisting}[language=c++]
+  const uint32_t errorCode = can.begin (settings, canISR) ;
+\end{lstlisting}}
+This is the third step, configuration of the \texttt{can} driver with \texttt{settings} values. The driver is configured for being able to send any (standard / extended, data / remote) frame, and to receive all (standard / extended, data / remote) frames. If you want to define reception filters, see \refSectionPage{primaryFilters}.
+
+
+
+
+
+{ \small\begin{lstlisting}[language=c++]
+  if (errorCode != 0) {
+    Serial.print ("Configuration error 0x") ;
+    Serial.println (errorCode, HEX) ;
+  }
+}
+\end{lstlisting}}
+Last step: the configuration of the \texttt{can} driver returns an error code, stored in the \texttt{errorCode} constant. It has the value $0$ if all is ok -- see \refSubsectionPage{errorCodeMethodBegin}.
+
+
+
+
+
+
+
+
+{ \small\begin{lstlisting}[language=c++]
+static unsigned gBlinkLedDate = 0 ;
+static unsigned gReceivedFrameCount = 0 ;
+static unsigned gSentFrameCount = 0 ;
+\end{lstlisting}}
+The \texttt{gSendDate} global variable is used for sending a CAN message every 2 s. The \texttt{gSentCount} global variable counts the number of sent messages. The \texttt{gReceivedCount} global variable counts the number of received messages.
+
+
+
+{ \small\begin{lstlisting}[language=c++]
+void loop() {
+  CANMessage frame ;
+\end{lstlisting}}
+The \texttt{message} object is fully initialized by the default constructor, it represents a standard data frame, with an identifier equal to $0$, and without any data -- see \refSectionPage{CANMessageClass}. 
+
+
+
+
+
+
+
+{ \small\begin{lstlisting}[language=c++]
+  if (gBlinkLedDate < millis ()) {
+    gBlinkLedDate += 2000 ;
+    digitalWrite (LED_BUILTIN, !digitalRead (LED_BUILTIN)) ;
+    const bool ok = can.tryToSend (frame) ;
+    if (ok) {
+      gSentFrameCount += 1 ;
+      Serial.print ("Sent: ") ;
+      Serial.println (gSentFrameCount) ;
+    }else{
+      Serial.println ("Send failure") ;
+    }
+  }
+\end{lstlisting}}
+We try to send the data message. Actually, we try to transfer it into the \emph{Driver transmit buffer}. The transfer succeeds if the buffer is not full. The \texttt{tryToSend} method returns \texttt{false} if the buffer is full, and \texttt{true} otherwise. Note the returned value only tells if the transfer into the \emph{Driver transmit buffer} is successful or not: we have no way to know if the frame is actually sent on the the CAN network. Then, we act the successfull transfer by setting \texttt{gSendDate} to the next send date and incrementing the \texttt{gSentCount} variable. Note if the transfer did fail, the send date is not changed, so the \texttt{tryToSend} method will be called on the execution of the \texttt{loop} function.
+
+
+{ \small\begin{lstlisting}[language=c++]
+  if (can.available ()) {
+    can.receive (frame) ;
+    gReceivedFrameCount ++ ;
+    Serial.print ("Received: ") ;
+    Serial.println (gReceivedFrameCount) ;
+  }
+}
+\end{lstlisting}}
+As the \texttt{MCP2515} controller is configured in \emph{loop back} mode, all sent messages are received. The \texttt{receive} method returns \texttt{false} if no message is available from the \emph{driver reception buffer}. It returns \texttt{true} if a message has been successfully removed from the \emph{driver reception buffer}. This message is assigned to the \texttt{message} object. If a message has been received, the \texttt{gReceivedCount} is incremented ans displayed.
 
 
 
@@ -594,74 +692,28 @@ The \texttt{idx} property is not used in CAN frames, but:
 
 \section{Connecting a \texttt{MCP2515} to your microcontroller}
 
-You have several connection possibilities:
+
+Connecting a \texttt{MCP2515} requires 5 pins :
 \begin{itemize}
-  \item using \emph{software SPI} or \emph{hardware SPI};
-  \item using the \texttt{MCP2515} interrupt signal or not.
+  \item hardware SPI requires you use dedicaced pins of your microcontroller (\refFigure{}{figureHardwareSPI}). You can use alternate pins (see below), and if your microcontroller supports several hardware SPIs, you can select any of them;
+  \item connecting the $\overline{\tt CS}$ signal requires one digital pin, that the driver configures as an \texttt{OUTPUT} ;
+  \item connecting the $\overline{\tt INT}$ signal requires one other digital pin, that the driver configures as an external interrupt input; so this pin should have interrupt capability (checked by the \texttt{begin} method of the driver object).
 \end{itemize}
 
-For efficiency, it is recommended to use \emph{hardware SPI} and the \texttt{MCP2515} interrupt signal.
-
-\subsection{Software SPI}
-
-Software SPI requires four pins that provide digital input and output. We name these pins \texttt{MCP2515\_CS}, \texttt{MCP2515\_SCK}\texttt{MCP2515\_SI} and \texttt{MCP2515\_SO}, as shown in \refFigure{}{figureSoftwareSPI}.
-
 \begin{figure}[!ht]
   \small
   \centering
   \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
   %--- Microcontroller
-    \draw[very thick, fill=lightgray!25] (-1.5, 0) -- ++(5.5, 0)  -- ++(0, 2.5) -- ++ (-5.5, 0) ;
-    \draw (0, 1.25) node {\bf\emph{Microcontroller}};
+    \draw[very thick, fill=lightgray!25] (-1.5, 0) -- ++(5.5, 0)  -- ++(0, 3) -- ++ (-5.5, 0) ;
+    \draw (0, 1.5) node {\bf\emph{Microcontroller}};
   %--- MCP2515
-    \draw[very thick, fill=lightgray!25] (12, 0) -- ++(-4, 0)  -- ++(0, 2.5) -- ++ (4, 0) ;
-    \draw (10.5, 1.25) node {\bf\emph{MCP2515}};
-  %--- CS
-    \draw[->, thick] (4, 2) -- ++ (4, 0) ;
-    \draw (8, 2) node[right] {$\overline{\tt CS}$};
-    \draw (4, 2) node[left] {\tt MCP2515\_CS};
-  %--- SCK
-    \draw[->, thick] (4, 1.5) -- ++ (4, 0) ;
-    \draw (8, 1.5) node[right] {\tt SCK};
-    \draw (4, 1.5) node[left] {\tt MCP2515\_SCK};
-  %--- SI
-    \draw[->, thick] (4, 1) -- ++ (4, 0) ;
-    \draw (8, 1) node[right] {\tt SI};
-    \draw (4, 1) node[left] {\tt MCP2515\_SI};
-  %--- SO
-    \draw[<-, thick] (4, .5) -- ++ (4, 0) ;
-    \draw (8, .5) node[right] {\tt S0};
-    \draw (4, .5) node[left] {\tt MCP2515\_SO};
-  \end{tikzpicture}
-  \caption{Software SPI}
-  \labelFigure{figureSoftwareSPI}
-\end{figure}
-
-The four argument constructor of \texttt{ACAN2515} class specifies the for pins used for handling software SPI:
-{ \small\begin{lstlisting}[language=c++]
-static const byte MCP2515_CS  = 20 ; // CS input of MCP2515 
-static const byte MCP2515_SCK = 27 ; // SCK input of MCP2515 
-static const byte MCP2515_SI  = 28 ; // SI input of MCP2515  
-static const byte MCP2515_SO  = 39 ; // SO output of MCP2515 
-
-ACAN2515 can (MCP2515_CS, MCP2515_SCK, MCP2515_SI, MCP2515_SO) ;
-\end{lstlisting}}
-
-
-\subsection{Hardware SPI}
-
-Hardware SPI requires you use dedicaced pins of your microcontroller (\refFigure{}{figureHardwareSPI}). You can use alternate pins (see below), and if your microcontroller supports several hardware SPIs, you can select any of them. However, you should provide one digital port for handling $\overline{\tt CS}$ signal.
-
-\begin{figure}[!ht]
-  \small
-  \centering
-  \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
-  %--- Microcontroller
-    \draw[very thick, fill=lightgray!25] (-1.5, 0) -- ++(5.5, 0)  -- ++(0, 2.5) -- ++ (-5.5, 0) ;
-    \draw (0, 1.25) node {\bf\emph{Microcontroller}};
-  %--- MCP2515
-    \draw[very thick, fill=lightgray!25] (12, 0) -- ++(-4, 0)  -- ++(0, 2.5) -- ++ (4, 0) ;
-    \draw (10.5, 1.25) node {\bf\emph{MCP2515}};
+    \draw[very thick, fill=lightgray!25] (12, 0) -- ++(-4, 0)  -- ++(0, 3) -- ++ (4, 0) ;
+    \draw (10.5, 1.5) node {\bf\emph{MCP2515}};
+  %--- INT
+    \draw[<-, thick] (4, 2.5) -- ++ (4, 0) ;
+    \draw (8, 2.5) node[right] {$\overline{\tt INT}$};
+    \draw (4, 2.5) node[left] {\tt MCP2515\_INT};
   %--- CS
     \draw[->, thick] (4, 2) -- ++ (4, 0) ;
     \draw (8, 2) node[right] {$\overline{\tt CS}$};
@@ -683,35 +735,28 @@ Hardware SPI requires you use dedicaced pins of your microcontroller (\refFigure
   \labelFigure{figureHardwareSPI}
 \end{figure}
 
-The two argument constructor of \texttt{ACAN2515} class specifies the for pins used for handling hardware SPI:
-{ \small\begin{lstlisting}[language=c++]
-static const byte MCP2515_CS  = 20 ; // CS input of MCP2515 
-
-ACAN2515 can (MCP2515_CS, SPI) ;
-\end{lstlisting}}
-
-If your microcontroller provides \texttt{SPI2}, \texttt{SPI3}, … you can select the one you want:
-{ \small\begin{lstlisting}[language=c++]
-ACAN2515 can (MCP2515_CS, SPI2) ;
-\end{lstlisting}}
 
 The \texttt{begin} function of \texttt{ACAN2515} library configures the selected SPI with a frequency of 10 Mbit/s (the maximum frequency supported by the \texttt{MCP2515}). More precisely, the SPI library of your microcontroller may adopt a frequency lower than 10 Mbit/s; for example, the maximum frequency of the Arduino Uno SPI is 8 Mbit/s.
 
-\subsubsection{Using alternate pins on Teensy 3.x}
+\subsection{Using alternate pins on Teensy 3.x}
 
-On Teensy 3.x, \emph{the main SPI pins are enabled by default. SPI pins can be moved to their alternate position with \texttt{SPI.setMOSI(pin)}, \texttt{SPI.setMISO(pin)}, and \texttt{SPI.setSCK(pin)}. You can move all of them, or just the ones that conflict, as you prefer.}\footnote{See \url{https://www.pjrc.com/teensy/td_libs_SPI.html}}
+On Teensy 3.x, "\emph{the main SPI pins are enabled by default. SPI pins can be moved to their alternate position with \texttt{SPI.setMOSI(pin)}, \texttt{SPI.setMISO(pin)}, and \texttt{SPI.setSCK(pin)}. You can move all of them, or just the ones that conflict, as you prefer.}"\footnote{See \url{https://www.pjrc.com/teensy/td_libs_SPI.html}}
 
-For example, on a Teensy 3.5, I want to use \texttt{SPI0} with these alternate pins\footnote{See \url{https://www.pjrc.com/teensy/pinout.html}}:
+For example, on a Teensy 3.5, I use \texttt{SPI0} with these alternate pins\footnote{See \url{https://www.pjrc.com/teensy/pinout.html}}:
 \begin{figure}[!ht]
   \small
   \centering
   \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
   %--- Microcontroller
-    \draw[very thick, fill=lightgray!25] (-1.5, 0) -- ++(5.5, 0)  -- ++(0, 2.5) -- ++ (-5.5, 0) ;
+    \draw[very thick, fill=lightgray!25] (-1.5, 0) -- ++(5.5, 0)  -- ++(0, 3) -- ++ (-5.5, 0) ;
     \draw (0, 1.25) node {\bf\emph{Teensy 3.5}};
   %--- MCP2515
-    \draw[very thick, fill=lightgray!25] (12, 0) -- ++(-4, 0)  -- ++(0, 2.5) -- ++ (4, 0) ;
+    \draw[very thick, fill=lightgray!25] (12, 0) -- ++(-4, 0)  -- ++(0, 3) -- ++ (4, 0) ;
     \draw (10.5, 1.25) node {\bf\emph{MCP2515}};
+  %--- INT
+    \draw[<-, thick] (4, 2.5) -- ++ (4, 0) ;
+    \draw (8, 2.5) node[right] {$\overline{\tt INT}$};
+    \draw (4, 2.5) node[left] {\tt MCP2515\_INT};
   %--- CS
     \draw[->, thick] (4, 2) -- ++ (4, 0) ;
     \draw (8, 2) node[right] {$\overline{\tt CS}$};
@@ -778,107 +823,6 @@ void setup () {
 
 
 
-\subsection{\texttt{MCP2515} interrupt pin is not connected}
-
-This design saves one pin. This is not recommended because incoming messages can be lost, the \texttt{MCP2515} receive buffer is 2-message wide.
-\begin{figure}[!ht]
-  \small
-  \centering
-  \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
-  %--- Microcontroller
-    \draw[very thick, fill=lightgray!25] (-1.5, 0) -- ++(5.5, 0)  -- ++(0, 1) -- ++ (-5.5, 0) ;
-    \draw (0, .5) node {\bf\emph{Microcontroller}};
-  %--- MCP2515
-    \draw[very thick, fill=lightgray!25] (12, 0) -- ++(-4, 0)  -- ++(0, 1) -- ++ (4, 0) ;
-    \draw (10.5, .5) node {\bf\emph{MCP2515}};
-  %--- INT
-    \draw[<-, thick] (6, .5) -- ++ (2, 0) ;
-    \draw (8, .5) node[right] {$\overline{\tt INT}$};
-    \draw (6, .5) node[left] {\tt nc};
-  \end{tikzpicture}
-  \caption{the $\overline{\tt INT}$ pin of the \texttt{MPC2515} is not used}
-  \labelFigure{figureNoInterrupt}
-\end{figure}
-
-You have two possibilities: calling the \texttt{polling} function in \texttt{loop}, or calling the \texttt{isr} function in a periodic interrupt function.
-
-
-\subsubsection{Calling the \texttt{polling} function in \texttt{loop}}
-
-Your \texttt{loop} function should call the \texttt{polling} function as often as possible:
-{ \small\begin{lstlisting}[language=c++]
-void loop () {
-  can.polling () ;
-  ...
-\end{lstlisting}}
-
-\subsubsection{Calling the \texttt{isr} function in a periodic interrupt function}
-
-You define a periodic interrupt, and call \texttt{can.isr} function in its attached interrupt service routine:
-{ \small\begin{lstlisting}[language=c++]
-void periodicISR () {
-  can.isr () ;
-}
-
-void setup () {
-  ...
-  const uint32_t errorCode = can.begin (settings) ;
-  ...
-//--- This should be done AFTER the call of can.begin
-  Timer1.initialize (1000) ; // 1ms
-  Timer1.attachInterrupt (periodicISR);
-  ...
-}
-\end{lstlisting}}
-
-
-\subsection{Using \texttt{MCP2515} interrupt pin}
-
-This design requires one interrupt pin. This is recommended for not losting incoming messages.
-\begin{figure}[!ht]
-  \small
-  \centering
-  \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
-  %--- Microcontroller
-    \draw[very thick, fill=lightgray!25] (-1.5, 0) -- ++(5.5, 0)  -- ++(0, 1) -- ++ (-5.5, 0) ;
-    \draw (0, .5) node {\bf\emph{Microcontroller}};
-  %--- MCP2515
-    \draw[very thick, fill=lightgray!25] (12, 0) -- ++(-4, 0)  -- ++(0, 1) -- ++ (4, 0) ;
-    \draw (10.5, .5) node {\bf\emph{MCP2515}};
-  %--- INT
-    \draw[<-, thick] (4, .5) -- ++ (4, 0) ;
-    \draw (8, .5) node[right] {$\overline{\tt INT}$};
-    \draw (4, .5) node[left] {\tt MCP2515\_INT};
-  \end{tikzpicture}
-  \caption{the $\overline{\tt INT}$ pin of the \texttt{MPC2515} is used}
-  \labelFigure{figureInterrupt}
-\end{figure}
-
-It is up to you to set up the interrupt handling. First, you declare the interrupt pin number (you can select any pin that have interrupt capability):
-{ \small\begin{lstlisting}[language=c++]
-static const byte MCP2515_IRQ = 37 ; // INT output of MCP2515
-\end{lstlisting}}
-
-Then, you write the interrupt service routine; it just calls the \texttt{isr} method of your \texttt{can} object:
-{ \small\begin{lstlisting}[language=c++]
-void canISR () {
-  can.isr () ;
-}
-\end{lstlisting}}
-
-Finally, in the \texttt{setup} function, you configure the pin as external interrupt, and attach the interrupt service routine; this should be done before calling \texttt{can.begin}:
-{ \small\begin{lstlisting}[language=c++]
-void setup () {
-  ...
-//--- Configure MCP2515_IRQ as external interrupt
-  pinMode (MCP2515_IRQ, INPUT_PULLUP) ;
-  attachInterrupt (digitalPinToInterrupt (MCP2515_IRQ), canISR, LOW) ;
-  ...
-  const uint32_t errorCode = can.begin (settings) ;
-  ...
-\end{lstlisting}}
-
-
 
 
 
@@ -916,8 +860,8 @@ A way is to use a global variable to note if the message has been successfully t
 static unsigned gSendDate = 0 ;
 
 void loop () {
-  CANMessage message ;
   if (gSendDate < millis ()) {
+    CANMessage message ;
     // Initialize message properties
     const bool ok = can.tryToSend (message) ;
     if (ok) {
@@ -1132,36 +1076,25 @@ Note the driver receive buffer can overflow, if messages are not retrieved (by c
 
 
 
-\sectionLabel{Configuration}{FlexCANconfiguration}
 
-The \texttt{mConfiguration} property of the \texttt{settings} variable defines the FlexCAN module configuration -- see \refTableau {configFlexCAN}. By default, its value is \texttt{ACAN2515Settings::k12\_12\_Filters}.
+\sectionLabel{Acceptance filters}{acceptanceFilters}
 
-You can easily override the default configuration:
-{ \small\begin{lstlisting}[language=c++]
-void setup () {
-  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
-  settings.mConfiguration = ACAN2515Settings::k14_18_Filters ;
-  const uint32_t errorCode = can.begin (settings) ; // No receive filter
-  ...
-}
-\end{lstlisting}}
+The filters of the \texttt{MCP2515} are quite primitive, and it is recommended to read the Microchip documentation \texttt{DS20001801H}, section 4.5 page 33. The \refFigurePage{}{figureFiltres2515} is the figure 4.2 page 25 of this document. The following is a summary of the reception of the frames by the CAN controller:
+\begin{itemize}
+  \item there are two receive buffers, \texttt{RXB0} and \texttt{RXB1};
+  \item the acceptance mask register \texttt{RXM0} and the acceptance filter registers \texttt{RXF0} and \texttt{RXF1} are associated to \texttt{RXB0};
+  \item the acceptance mask register \texttt{RXM1} and the acceptance filter registers \texttt{RXF2} to \texttt{RXF5} are associated to \texttt{RXB1};
+  
+\end{itemize}
 
 
-\begin{table}[!ht]
+\begin{figure}[!ht]
   \small
-  \onehalfspacing
   \centering
-  \begin{tabular}{lllll}
-    \textbf{settings.mConfiguration}& \textbf{Primary filters} & \textbf{Secondary filters} & \textbf{MB for sending remote frames} \\
-                                   & \refSectionPage{primaryFilters} & \refSectionPage{secondaryFilters} & \refSectionPage{sendingRemoteFrames} \\
-    \texttt{k8\_0\_Filters} & 8 & 0 & 7\\
-    \texttt{k10\_6\_Filters} & 10 & 6 & 5\\
-    \texttt{k12\_12\_Filters} & 12 & 12 & 3\\
-    \texttt{k14\_18\_Filters} & 14 & 18 & 1\\
-  \end{tabular}
-  \caption{FlexCAN configuration, following \texttt{settings.mConfiguration} value}
-  \labelTableau{configFlexCAN}
-\end{table}
+  \includegraphics[width=12cm]{mcp2515-filters.pdf}
+  \caption{\texttt{MCP2515} acceptance filters}
+  \labelFigure{figureFiltres2515}
+\end{figure}
 
 
 
@@ -1169,45 +1102,6 @@ void setup () {
 
 
 
-
-
-
-%\section{Filtering received messages}
-%
-%By default, no filtering of received message occurs, that is all network CAN frames are captured and transfered into the FlexCAN RxFIFO by the FlexCAN module, and transfered info the driver receive buffer by the driver.
-%
-%In the following example, all network messages are retrieved by calling \texttt{can.receive}. Then, the \textbf{if} ... \textbf{else if} dispatches useful messages to \texttt{handle\_myMessage\_0}, ... functions.
-%
-%{ \small\begin{lstlisting}[language=c++]
-%void setup () {
-%  ACAN2515Settings settings (125 * 1000) ;
-%  ...
-%  const uint32_t errorCode = can.begin (settings) ; // No receive filter
-%  ...
-%}
-%
-%void loop () {
-%  CANMessage message ;
-%  if (can.receive (message)) { // All network frames are retrieved
-%    if (!message.rtr && message.ext && (message.id == 0x123456)) {
-%      handle_myMessage_0 (message) ; // Extended data frame, id is 0x123456
-%    }else if (!message.rtr && !message.ext && (message.id == 0x234)) {
-%      handle_myMessage_1 (message) ;  // Standard data frame, id is 0x234
-%    }else if (message.rtr && !message.ext && (message.id == 0x542)) {
-%      handle_myMessage_2 (message) ;  // Standard remote frame, id is 0x542
-%    }
-%  }
-%  ...
-%}
-%\end{lstlisting}}
-
-
-
-\sectionLabel{Primary filters}{primaryFilters}
-
-A first step is to define \emph{receive filters}\footnote{The second step is to use the \texttt{dispatchReceivedMessage} method instead of the \texttt{receive} method, see \refSectionPage{UsingDispatchMethod}.}. The \emph{receive filters} are set to the FlexCAN module, so filtering is performed by hardware, without any CPU charge. The messages that pass the filters are transfered into the FlexCAN RxFIFO by the FlexCAN module, and transfered info the driver receive buffer by the driver. So the \texttt{receive} method only gets messages that have passed the filters.
-
-The driver lets you to define two kinds of filters: \emph{primary filters} and \emph{secondary filters}\footnote{The \emph{primary filters} and \emph{secondary filters} terms are used in this document for simplicity. FlexCAN documentation names them respectively \emph{Rx FIFO filter Table Elements Affected by Rx Individual Masks} and \emph{Rx FIFO filter Table Elements Affected by Rx FIFO Global Mask}.}. Making the difference is required by FlexCAN hardware design: \emph{primary filters} are more powerfull than \emph{secondary filters}.
 
 \subsection{Primary filter example}
 
@@ -1252,7 +1146,7 @@ Each element of the \texttt{primaryFilters} constant array defines an acceptance
 
 {\bf Maximum number of \emph{primary filters}.} The number of \emph{primary filters} is limited: 12 by default, as the default value of \texttt{settings.mConfiguration} is \texttt{ACAN2515Settings::k12\_12\_Filters}. See \refSectionPage{FlexCANconfiguration} for getting the number of \emph{primary filters} for each configuration, and for setting your own configuration.
 
-{\bf Test order.} The FlexCAN hardware examines the filters in the increasing order of their indexes in the \texttt{primaryFilters} constant array. As soon as a match occurs, the message is transfered to Rx FIFO buffer and the examination process is completed. If no match occurs, the message is lost.
+{\bf Test order.} The \texttt{MCP2515} hardware examines the filters in the increasing order of their indexes in the \texttt{primaryFilters} constant array. As soon as a match occurs, the message is transfered to Rx FIFO buffer and the examination process is completed. If no match occurs, the message is lost.
 
 A consequence is if a filter appears twice, the second occurrence will never match. In the next example, the Filter \#3 will never match, as it is identical to filter \#1.
 
@@ -1461,7 +1355,7 @@ Each element of the \texttt{secondaryFilters} constant array defines an acceptan
 
 {\bf Maximum number of \emph{secondary filters}.} The number of \emph{secondary filters} is limited: 12 by default, as the default value of \texttt{settings.mConfiguration} is \texttt{ACAN2515Settings::k12\_12\_Filters}. See \refSectionPage{FlexCANconfiguration} for getting the number of \emph{secondary filters} for each configuration, and for changing default value.
 
-{\bf Test order.} The FlexCAN hardware examines the filters in the increasing order of their indexes in the \texttt{secondaryFilters} constant array. As soon as a match occurs, the message is transfered to Rx FIFO buffer and the examination process is completed. If no match occurs, the message is lost.
+{\bf Test order.} The \texttt{MCP2515} hardware examines the filters in the increasing order of their indexes in the \texttt{secondaryFilters} constant array. As soon as a match occurs, the message is transfered to Rx FIFO buffer and the examination process is completed. If no match occurs, the message is lost.
 
 A consequence is if a filter appears twice, the second occurrence will never match.
 
@@ -1503,7 +1397,7 @@ void loop () {
 \end{lstlisting}}
 
 
-{\bf Test order.} The FlexCAN hardware performs sequentially:
+{\bf Test order.} The \texttt{MCP2515} hardware performs sequentially:
 \begin{itemize}
   \item testing the primary filters in the increasing order of their indexes in the \texttt{primaryFilters} constant array;
   \item as soon as a match with a primary filter occurs, the message is transfered to Rx FIFO buffer and the examination process is completed;
@@ -1822,7 +1716,7 @@ void setup () {
 }
 \end{lstlisting}}
 
-This error is a fatal error, the driver and the FlexCAN module are not configured. See \refSubsectionPage{CANbitSettings} for a discussion about CAN bit setting computation.
+This error is a fatal error, the driver and the \texttt{MCP2515} module are not configured. See \refSubsectionPage{CANbitSettings} for a discussion about CAN bit setting computation.
 
 
 \subsubsectionLabel{CAN Bit inconsistent configuration error}{CANBitInconsistentConfigError}
@@ -1867,7 +1761,7 @@ This error is raised when you have changed the CAN bit properties (\texttt{mBitR
 %}
 %\end{lstlisting}}
 %
-%This error is a fatal error, the driver and the FlexCAN module are not configured. See \refSubsectionPage{CANbitSettings} for a discussion about CAN bit setting computation.
+%This error is a fatal error, the driver and the \texttt{MCP2515} module are not configured. See \refSubsectionPage{CANbitSettings} for a discussion about CAN bit setting computation.
 
 
 
@@ -1977,7 +1871,7 @@ void setup () {
 }
 \end{lstlisting}}
 
-The fastest exact bit rate is 3,2 Mbit/s. It works when the FlexCAN module is configured in both \emph{loop back} mode (\refSubsubsectionPage{mLoopBackMode}) and \emph{self reception} mode (\refSubsubsectionPage{mSelfReceptionMode}). Note bit rates above 1 Mbit/s do not conform to the \texttt{ISO-11898}; CAN transceivers as \texttt{MCP2551} require the bit rate lower or equal to 1 Mbit/s.
+The fastest exact bit rate is 3,2 Mbit/s. It works when the \texttt{MCP2515} module is configured in both \emph{loop back} mode (\refSubsubsectionPage{mLoopBackMode}) and \emph{self reception} mode (\refSubsubsectionPage{mSelfReceptionMode}). Note bit rates above 1 Mbit/s do not conform to the \texttt{ISO-11898}; CAN transceivers as \texttt{MCP2551} require the bit rate lower or equal to 1 Mbit/s.
 
 
 The slowest exact bit rate is 2.5 kbit/s. Note many CAN transceivers as the \texttt{MCP2551} provide "\emph{detection of ground fault (permanent Dominant) on TXD input}". For example, the \texttt{MCP2551} constraints the bit rate to be greater or equal to 16 kbit/s. If you want to work with slower bit rates and you need a transceiver, use one without this detection, as the \texttt{PCA82C250}.

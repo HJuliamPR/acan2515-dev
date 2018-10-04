@@ -6,12 +6,21 @@
 # Datatypes (KEYWORD1)
 #######################################
 
-ACAN2515
+ACAN2515 KEYWORD1
+ACANSettings2515	KEYWORD1
+ACAN2515Mask	KEYWORD1
+CANMessage	KEYWORD1
 
 #######################################
 # Methods and Functions (KEYWORD2)
 #######################################
 
+begin	KEYWORD2
+available	KEYWORD2
+receive	KEYWORD2
+dispatchReceivedMessage	KEYWORD2
+tryToSend	KEYWORD2
+isr	KEYWORD2
 
 #######################################
 # Constants (LITERAL1)

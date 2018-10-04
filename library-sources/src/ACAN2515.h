@@ -60,7 +60,7 @@ class ACAN2515 {
   private: void handleRXBInterrupt (void) ;
 
  //--- Properties
-  private : SPIClass * mSPI ;
+  private : SPIClass & mSPI ;
   private: const SPISettings mSPISettings ;
   private: const uint8_t mCS ;
   private: const uint8_t mINT ;

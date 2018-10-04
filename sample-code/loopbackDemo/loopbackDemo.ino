@@ -58,6 +58,7 @@ void setup () {
     digitalWrite (LED_BUILTIN, !digitalRead (LED_BUILTIN)) ;
   }
 //--- Define alternate pins for SPI0 (see https://www.pjrc.com/teensy/td_libs_SPI.html)
+//    These settings are defined by Teensyduino for Teensy 3.x
   Serial.print ("Using pin #") ;
   Serial.print (MCP2515_SI) ;
   Serial.print (" for MOSI: ") ;
@@ -110,7 +111,6 @@ void setup () {
 static unsigned gBlinkLedDate = 0 ;
 static unsigned gReceivedFrameCount = 0 ;
 static unsigned gSentFrameCount = 0 ;
-static uint8_t gTransmitBufferIndex = 0 ;
 
 //——————————————————————————————————————————————————————————————————————————————
 
@@ -119,8 +119,6 @@ void loop() {
   if (gBlinkLedDate < millis ()) {
     gBlinkLedDate += 2000 ;
     digitalWrite (LED_BUILTIN, !digitalRead (LED_BUILTIN)) ;
-    frame.idx = gTransmitBufferIndex ;
-    gTransmitBufferIndex = (gTransmitBufferIndex + 1) % 3 ;
     const bool ok = can.tryToSend (frame) ;
     if (ok) {
       gSentFrameCount += 1 ;

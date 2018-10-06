@@ -61,18 +61,6 @@ static void receive0 (const CANMessage & inMessage) {
 }
 
 //——————————————————————————————————————————————————————————————————————————————
-
-static void receive1 (const CANMessage & inMessage) {
-  Serial.println ("Receive 1") ;
-}
-
-//——————————————————————————————————————————————————————————————————————————————
-
-static void receive2 (const CANMessage & inMessage) {
-  Serial.println ("Receive 2") ;
-}
-
-//——————————————————————————————————————————————————————————————————————————————
 //   SETUP
 //——————————————————————————————————————————————————————————————————————————————
 
@@ -96,36 +84,12 @@ void setup () {
   Serial.println ("Configure ACAN2515") ;
   ACANSettings2515 settings (QUARTZ_FREQUENCY, 125 * 1000) ; // CAN bit rate 125 kb/s
   settings.mRequestedMode = ACAN2515RequestedMode::LoopBackMode ; // Select loopback mode
-  settings.mRXM0 = ACANSettings2515::extended2515Mask (0x1FFFFFFF) ; // For filter #0 and #1
-  settings.mRXM1 = ACANSettings2515::standard2515Mask (0x7F0, 0xFF, 0) ; // For filter #2 to #5
+  const ACAN2515Mask rxm0 = standard2515Mask (0x7FF, 0xFF, 0) ; // For filter #0 and #1
   const ACAN2515AcceptanceFilter filters [] = {
-    {ACANSettings2515::extended2515Filter (0x12345678), receive0},
-    {ACANSettings2515::extended2515Filter (0x18765432), receive1},
-    {ACANSettings2515::standard2515Filter (0x560, 0x55, 0), receive2}
+    {standard2515Filter (0x560, 0x55, 0), receive0}
   } ;
-  const uint32_t errorCode = can.begin (settings, canISR, filters, 3) ;
-  if (errorCode == 0) {
-    Serial.print ("Bit Rate prescaler: ") ;
-    Serial.println (settings.mBitRatePrescaler) ;
-    Serial.print ("Propagation Segment: ") ;
-    Serial.println (settings.mPropagationSegment) ;
-    Serial.print ("Phase segment 1: ") ;
-    Serial.println (settings.mPhaseSegment1) ;
-    Serial.print ("Phase segment 2: ") ;
-    Serial.println (settings.mPhaseSegment2) ;
-    Serial.print ("SJW:") ;
-    Serial.println (settings.mSJW) ;
-    Serial.print ("Triple Sampling: ") ;
-    Serial.println (settings.mTripleSampling ? "yes" : "no") ;
-    Serial.print ("Actual bit rate: ") ;
-    Serial.print (settings.actualBitRate ()) ;
-    Serial.println (" bit/s") ;
-    Serial.print ("Exact bit rate ? ") ;
-    Serial.println (settings.exactBitRate () ? "yes" : "no") ;
-    Serial.print ("Sample point: ") ;
-    Serial.print (settings.samplePointFromBitStart ()) ;
-    Serial.println ("%") ;
-  }else{
+  const uint32_t errorCode = can.begin (settings, canISR, rxm0, filters, 1) ;
+  if (errorCode != 0) {
     Serial.print ("Configuration error 0x") ;
     Serial.println (errorCode, HEX) ;
   }
@@ -135,7 +99,6 @@ void setup () {
 
 static unsigned gBlinkLedDate = 0 ;
 static unsigned gSentFrameCount = 0 ;
-static uint8_t gTransmitBufferIndex = 0 ;
 
 //——————————————————————————————————————————————————————————————————————————————
 
@@ -145,26 +108,19 @@ void loop() {
   if (gBlinkLedDate < millis ()) {
     gBlinkLedDate += 2000 ;
     digitalWrite (LED_BUILTIN, !digitalRead (LED_BUILTIN)) ;
-    frame.idx = gTransmitBufferIndex ;
-    gTransmitBufferIndex = (gTransmitBufferIndex + 1) % 3 ;
-    switch (gSentFrameCount % 4) {
+    switch (gSentFrameCount % 3) {
     case 0 : // Matches filter #0
-      frame.id = 0x12345678 ;
-      frame.ext = true ;
-      break ;
-    case 1 : // Matches filter #1
-      frame.id = 0x18765432 ;
-      frame.ext = true ;
-      break ;
-    case 2 :  // Matches filter #2
-      frame.id = 0x564 ;
+      frame.id = 0x560 ;
       frame.data [0] = 0x55 ;
       frame.len = 1 ;
       break ;
-    case 3 :  // Does not match any filter
-      frame.id = 0x564 ;
-      frame.data [0] = 0x57 ;
+    case 1 : // Does not match filter #0
+      frame.id = 0x560 ;
+      frame.data [0] = 0x54 ;
       frame.len = 1 ;
+      break ;
+    case 2 :  // No data byte, still received
+      frame.id = 0x560 ;
       break ;
     }
     const bool ok = can.tryToSend (frame) ;

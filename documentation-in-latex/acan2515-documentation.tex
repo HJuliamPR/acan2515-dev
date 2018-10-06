@@ -1079,20 +1079,15 @@ Note the driver receive buffer can overflow, if messages are not retrieved (by c
 
 \sectionLabel{Acceptance filters}{acceptanceFilters}
 
-The filters of the \texttt{MCP2515} are quite primitive, and it is recommended to read the Microchip documentation \texttt{DS20001801H}, section 4.5 page 33. The \refFigurePage{}{figureFiltres2515} is the figure 4.2 page 25 of this document. The following is a summary of the reception of the frames by the CAN controller:
-\begin{itemize}
-  \item there are two receive buffers, \texttt{RXB0} and \texttt{RXB1};
-  \item the acceptance mask register \texttt{RXM0} and the acceptance filter registers \texttt{RXF0} and \texttt{RXF1} are associated to \texttt{RXB0};
-  \item the acceptance mask register \texttt{RXM1} and the acceptance filter registers \texttt{RXF2} to \texttt{RXF5} are associated to \texttt{RXB1};
-  
-\end{itemize}
+The filters of the \texttt{MCP2515} are quite primitive, and it is recommended to read the Microchip documentation \texttt{DS20001801H}, section 4.5 page 33. The \refFigurePage{}{figureFiltres2515} shows the \texttt{MCP2515} acceptance filter registers.
+
 
 
 \begin{figure}[!ht]
   \small
   \centering
   \includegraphics[width=12cm]{mcp2515-filters.pdf}
-  \caption{\texttt{MCP2515} acceptance filters}
+  \caption{\texttt{MCP2515} acceptance filters (\texttt{DS20001801H}, figure 4.2 page 25)}
   \labelFigure{figureFiltres2515}
 \end{figure}
 
@@ -1103,423 +1098,251 @@ The filters of the \texttt{MCP2515} are quite primitive, and it is recommended t
 
 
 
-\subsection{Primary filter example}
+\subsection{Default behaviour}
 
-For defining \emph{primary filters}\footnote{For \emph{secondary filters}, see \refSectionPage{secondaryFilters}.}, you write:
-{ \small\begin{lstlisting}[language=c++]
-void setup () {
-  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
-  ...
-  const ACANPrimaryFilter primaryFilters [] = {
-    ACANPrimaryFilter (kData, kExtended, 0x123456), // Filter #0
-    ACANPrimaryFilter (kData, kStandard, 0x234),    // Filter #1
-    ACANPrimaryFilter (kRemote, kStandard, 0x542)   // Filter #2
-  } ;
-  const uint32_t errorCode = can.begin (settings,
-                                               primaryFilters, // The filter array
-                                               3) ; // Filter array size
-  ...
-}
+\texttt{ACAN2515Settings} class has two properties \texttt{RXM0} and \texttt{RXM1}. They are set to $0$ by default. These properties are written to the corresponding \texttt{MCP2515} registers by the \texttt{ACAN2515::begin} method, so, by default, the \texttt{MCP2515} receives all CAN bus messages.
 
-void loop () {
-  CANMessage message ;
-  if (can.receive (message)) { // Only frames that pass a filter are retrieved
-    if (!message.rtr && message.ext && (message.id == 0x123456)) {
-      handle_myMessage_0 (message) ; // Extended data frame, id is 0x123456
-    }else if (!message.rtr && !message.ext && (message.id == 0x234)) {
-      handle_myMessage_1 (message) ;  // Standard data frame, id is 0x234
-    }else if (message.rtr && !message.ext && (message.id == 0x542)) {
-      handle_myMessage_2 (message) ;  // Standard remote frame, id is 0x542
-    }
-  }
-  ...
-}
-\end{lstlisting}}
+More precisely, as \texttt{RXM0} is zero, all messages are received in \texttt{RXB0}. If a new message is received as \texttt{RXB0} is full, the new message is lost.
 
-Each element of the \texttt{primaryFilters} constant array defines an acceptance filter. Should be specified\footnote{There is a fourth optional argument, that is \texttt{NULL} by default -- see \refSectionPage{UsingDispatchMethod}.}:
+You can set the \texttt{mRolloverEnable} property of your \texttt{ACAN2515Settings} object to \texttt{true} (it is \texttt{false} by défault). Doing that, if a new message is received as \texttt{RXB0} is full, the new message is transferred to \texttt{RXB1}. If \texttt{RXB1} is full the new message is lost.
+
+
+
+
+\subsection{Defining filters}
+
+{\bf Sample sketch: } the \texttt{loopbackUsingFilters} sketch shows how defining filters.
+
+For defining filters, you should:
 \begin{itemize}
-  \item the required kind: data frames (\texttt{kData}) or remote frames (\texttt{kRemote});
-  \item the required format: standard frames (\texttt{kStandard}) or extended frames (\texttt{kExtended});
-  \item the required identifier value.
+  \item define the values for the \texttt{RXM0} and \texttt{RXM1} acceptance masks;
+  \item submitting an \texttt{ACAN2515AcceptanceFilter} array to the \texttt{ACAN2515::begin} method.
 \end{itemize}
 
+The \texttt{ACAN2515AcceptanceFilter} array defines the values that the \texttt{ACAN2515::begin} method sets to the \texttt{RXF$i$} acceptance filter registers.
 
-{\bf Maximum number of \emph{primary filters}.} The number of \emph{primary filters} is limited: 12 by default, as the default value of \texttt{settings.mConfiguration} is \texttt{ACAN2515Settings::k12\_12\_Filters}. See \refSectionPage{FlexCANconfiguration} for getting the number of \emph{primary filters} for each configuration, and for setting your own configuration.
-
-{\bf Test order.} The \texttt{MCP2515} hardware examines the filters in the increasing order of their indexes in the \texttt{primaryFilters} constant array. As soon as a match occurs, the message is transfered to Rx FIFO buffer and the examination process is completed. If no match occurs, the message is lost.
-
-A consequence is if a filter appears twice, the second occurrence will never match. In the next example, the Filter \#3 will never match, as it is identical to filter \#1.
-
-{ \small\begin{lstlisting}[language=c++]
-void setup () {
-  ...
-  const ACANPrimaryFilter primaryFilters [] = {
-    ACANPrimaryFilter (kData, kExtended, 0x123456), // Filter #0
-    ACANPrimaryFilter (kData, kStandard, 0x234),    // Filter #1
-    ACANPrimaryFilter (kRemote, kStandard, 0x542),  // Filter #2
-    ACANPrimaryFilter (kData, kStandard, 0x234)     // Filter #3
-  } ;
-  ...
-}
-\end{lstlisting}}
-
-
-
-\subsectionLabel{Primary filter as pass-all filter}{passAllPrimaryFilter}
-
-You can specify a primary filter that matches any frame: 
-{ \small\begin{lstlisting}[language=c++]
-    ACANPrimaryFilter ()
-\end{lstlisting}}
-
-You can use it for accepting all frames that did not match previous filters:
-{ \small\begin{lstlisting}[language=c++]
-void setup () {
-  ...
-  const ACANPrimaryFilter primaryFilters [] = {
-    ACANPrimaryFilter (kData, kExtended, 0x123456), // Filter #0
-    ACANPrimaryFilter (kData, kStandard, 0x234),    // Filter #1
-    ACANPrimaryFilter (kRemote, kStandard, 0x542),  // Filter #2
-    ACANPrimaryFilter ()                            // Filter #3
-  } ; // Filter #3 catches any message that did not match filters #0, #1 and #2
-  ...
-}
-\end{lstlisting}}
-
-Be aware if the pass-all filter is not the last one, following ones will never match.
-{ \small\begin{lstlisting}[language=c++]
-void setup () {
-  ...
-  const ACANPrimaryFilter primaryFilters [] = {
-    ACANPrimaryFilter (kData, kExtended, 0x123456), // Filter #0
-    ACANPrimaryFilter (kData, kStandard, 0x234),    // Filter #1
-    ACANPrimaryFilter (),                           // Filter #2
-    ACANPrimaryFilter (kRemote, kStandard, 0x542)   // Filter #3
-  } ; // Filter #3 will never match
-  ...
-}
-\end{lstlisting}}
-
-
-
-\subsectionLabel{Primary filter for matching several identifiers}{primaryMultipleFilter}
-
-A primary filter can be configured for matching several identifiers\footnote{A \emph{secondary filter} cannot be configured for matching several identifiers.}. You provide two values: a \texttt{filter\_mask} and a \texttt{filter\_acceptance}. A message with an \texttt{identifier} is accepted if:
-
-\begin{equation*}
-  \texttt{filter\_mask}~\&~\texttt{identifier} = \texttt{filter\_acceptance}
-\end{equation*}
-
-The $\&$ operator is the bit-wise \emph{and} operator.
-
-Let's take an example: the filter should match standard data frames with identifiers equal to \texttt{0x540}, \texttt{0x541}, \texttt{0x542} and \texttt{0x543}. The four identifiers differs by the two lower bits. As a standard identifiers are 11-bits wide, the \texttt{filter\_mask} is \texttt{0x7FC}. The filter acceptance is \texttt{0x540}. The filter is declared by:
-
-{ \small\begin{lstlisting}[language=c++]
-    ...
-    ACANPrimaryFilter (kData,     // Accept only data frames
-                       kStandard, // Accept only standard frames
-                       0x7FC,     // Filter mask
-                       0x540)     // Filter acceptance
-    ...
-}
-\end{lstlisting}}
-
-For a standard frame (11-bit identifier), both \texttt{filter\_mask} and a \texttt{filter\_acceptance} should be lower or equal to \texttt{0x7FF}.
-
-For a extended frame (29-bit identifier), both \texttt{filter\_mask} and a \texttt{filter\_acceptance} should be lower or equal to \texttt{0x1FFF\_FFFF}.
-
-Be aware that the \texttt{filter\_mask} and a \texttt{filter\_acceptance} must also conform to the following constraint: if a bit is clear in the \texttt{filter\_mask}, the corresponding bit of the \texttt{filter\_acceptance} should also be clear. In other words, \texttt{filter\_mask} and a \texttt{filter\_acceptance} should check:
-\begin{equation*}
-  \texttt{filter\_mask}~\&~\texttt{filter\_acceptance} = \texttt{filter\_acceptance}
-\end{equation*}
-
-For example, the filter mask \texttt{0x7FC} and the filter acceptance \texttt{0x541} do not conform because the bit 0 of \texttt{filter\_mask} is clear and the bit 0 of the filter acceptance is set.
-
-{\bf A non conform filter may never match.}
-
-
-
-
-\subsectionLabel{Primary filter conformance}{primaryFilterConformance}
-
-The pass-all primary filter (\refSubsectionPage{passAllPrimaryFilter}) always conforms.
-
-For a primary filter for matching several identifiers, see \refSubsectionPage{primaryMultipleFilter}.
-
-For a primary filter for one single identifier:
+Four functions are available for managing filters:
 \begin{itemize}
-  \item for a standard frame (11-bit identifier), the given identifier value should be lower or equal to \texttt{0x7FF};
-  \item for a extended frame (29-bit identifier), the given identifier value should be lower or equal to \texttt{0x1FFF\_FFFF}.
+  \item \texttt{standard2515Mask} and \texttt{extended2515Mask} functions for defining \texttt{RXM$i$} value;
+  \item \texttt{standard2515Filter} and \texttt{extended2515Filter} functions for defining \texttt{RXF$i$} value.
 \end{itemize}
 
-If one or more primary filters do not conform, the execution of the \texttt{begin} method returns an error -- see \refTableauPage{beginErrorCode}.
+\texttt{RXM$i$} and \texttt{RXF$i$} values you handle are \texttt{ACAN2515Mask} class instances, that provides four \texttt{uint8\_t} properties: \texttt{mSIDH}, \texttt{mSIDL}, \texttt{mEID8}, \texttt{mEID0}. They correspond to the \texttt{MCP2515} registers. If you want, you can set directly these properties, without using the above functions. 
 
+{\bf Filter remote and data frames.} The \texttt{MCP2515} filters do not handle the \texttt{RTR} bit: for example, you cannot specify you want to accept data frames and discard remote frames. This should be done by your code.
 
-\subsectionLabel{The \texttt{receive} method revisited}{usingIDXvalue}
+{\bf Multiple filter matches.} From \texttt{DS20001801H}, section 4.5.4 page 34: \emph{If more than one acceptance filter matches, the FILHITn bits will encode the binary value of the lowest numbered filter that matched. For example, if filters, RXF2 and RXF4, match, the FILHITn bits will be loaded with the value for RXF2. This essentially prioritizes the acceptance filters with a lower numbered filter having higher priority. Messages are compared to filters in ascending order of filter number. This also ensures that the message will only be received into one buffer. This implies that RXB0 has a higher priority than RXB1.}
 
-The \texttt{receive} method retrieves a received message. When you define primary filters, the value of the \texttt{idx} property of the \texttt{message} is the matching filter index. For example:
+The \texttt{MCP2515} filters cannot be disabled, so all mask registers can be taken into account during the acceptance of a message. For example, if \texttt{MCP2515} filters are defined with the \texttt{RXM0}, \texttt{RXF0}, \texttt{RXF1} registers, leaving \texttt{RXM1} equal to $0$ provides the transfer to \texttt{RXB1} of all messages discarded by \texttt{RXB0}.
 
+For dealing with all situations, the \texttt{ACAN2515::begin} method accepts three prototypes.
+
+{\bf No filter.}
 { \small\begin{lstlisting}[language=c++]
-void setup () {
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
-  ...
-  const ACANPrimaryFilter primaryFilters [] = {
-    ACANPrimaryFilter (kData, kExtended, 0x123456), // Filter #0
-    ACANPrimaryFilter (kData, kStandard, 0x234),    // Filter #1
-    ACANPrimaryFilter (kRemote, kStandard, 0x542)   // Filter #2
-  } ;
-  const uint32_t errorCode = can.begin (settings, primaryFilters, 3) ;
-  ...
-}
-
-void loop () {
-  CANMessage message ;
-  if (can.receive (message)) { // Only frames that pass a filter are retrieved
-    switch (message.idx) {
-    case 0:
-      handle_myMessage_0 (message) ; // Extended data frame, id is 0x123456
-      break ;
-    case 1:
-      handle_myMessage_1 (message) ;  // Standard data frame, id is 0x234
-      break ;
-    case 2:
-      handle_myMessage_2 (message) ;  // Standard remote frame, id is 0x542
-      break ;
-    default:
-      break ;
-    }
-  }
-  ...
-}
+  const uint32_t errorCode = can.begin (settings, canISR) ;
 \end{lstlisting}}
-
-An improvement is to use the \texttt{dispatchReceivedMessage} method -- see \refSectionPage{UsingDispatchMethod}.
-
+No filter is provided, \texttt{RXM0} and \texttt{RXM1} are set to $0$, enabling the acceptance of all messages by \texttt{RXB0}.
 
 
 
-
-
-
-
-
-
-
-\sectionLabel{Secondary filters}{secondaryFilters}
-
-Depending from the configuration, you can define several \emph{secondary filters} -- see \refTableauPage{configFlexCAN}.
-
-% By default, the \texttt{settings.mConfiguration} value is \texttt{k12\_12\_Filters}, allowing up to 12 secondary filters.
-
-%\emph{Secondary filters} are less powerfull than \emph{primary filters} -- a secondary filter cannot match several identifiers. 
-
-\subsection{Secondary filters, without primary filter}
-
-This is an example without primary filter, and with secondary filters:
+{\bf One filter.} For example:
 { \small\begin{lstlisting}[language=c++]
-void setup () {
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
-  ...
-  const ACANSecondaryFilter secondaryFilters [] = {
-    ACANSecondaryFilter (kData, kExtended, 0x123456), // Filter #0
-    ACANSecondaryFilter (kData, kStandard, 0x234),    // Filter #1
-    ACANSecondaryFilter (kRemote, kStandard, 0x542)   // Filter #2
+  const ACAN2515Mask rxm0 = extended2515Mask (0x1FFFFFFF) ;
+  const ACAN2515AcceptanceFilter filter [] = {
+    {extended2515Filter (0x12345678), receive0} // RXF0
   } ;
   const uint32_t errorCode = can.begin (settings,
-                                               NULL, 0, // No primary filter
-                                               secondaryFilters, // The filter array
-                                               3) ; // Filter array size
-  ...
-void loop () {
-  CANMessage message ;
-  if (can.receive (message)) { // Only frames that pass a filter are retrieved
-    if (!message.rtr && message.ext && (message.id == 0x123456)) {
-      handle_myMessage_0 (message) ; // Extended data frame, id is 0x123456
-    }else if (!message.rtr && !message.ext && (message.id == 0x234)) {
-      handle_myMessage_1 (message) ;  // Standard data frame, id is 0x234
-    }else if (message.rtr && !message.ext && (message.id == 0x542)) {
-      handle_myMessage_2 (message) ;  // Standard remote frame, id is 0x542
-    }
-  }
-  ...
-}
-}
+                                        canISR,
+                                        rxm0, // Value set to RXM0 register
+                                        filter, // The filter array
+                                        1) ; // Filter array size
 \end{lstlisting}}
 
-Each element of the \texttt{secondaryFilters} constant array defines an acceptance filter. Should be specified\footnote{There is a fourth optional argument, that is \texttt{NULL} by default -- see \refSectionPage{UsingDispatchMethod}.}:
-\begin{itemize}
-  \item the required kind: data frames (\texttt{kData}) or remote frames (\texttt{kRemote});
-  \item the required format: standard frames (\texttt{kStandard}) or extended frames (\texttt{kExtended});
-  \item the required identifier value.
-\end{itemize}
+Here, one type of message is accepted, extended (data or remote) frames with an identifier equal to \texttt{0x12345678}. This defines explicitly \texttt{RXM0} and \texttt{RXF0}; for disabling acceptance by \texttt{RXF1}, it is set with \texttt{RXF0} value; \texttt{RXM1} is set with \texttt{RXM0} value, and the \texttt{RXF2} to \texttt{RXF5} registers are set with the \texttt{RXF1} value. No message will be accepted by \texttt{RXB1} filters.
 
-{\bf Maximum number of \emph{secondary filters}.} The number of \emph{secondary filters} is limited: 12 by default, as the default value of \texttt{settings.mConfiguration} is \texttt{ACAN2515Settings::k12\_12\_Filters}. See \refSectionPage{FlexCANconfiguration} for getting the number of \emph{secondary filters} for each configuration, and for changing default value.
-
-{\bf Test order.} The \texttt{MCP2515} hardware examines the filters in the increasing order of their indexes in the \texttt{secondaryFilters} constant array. As soon as a match occurs, the message is transfered to Rx FIFO buffer and the examination process is completed. If no match occurs, the message is lost.
-
-A consequence is if a filter appears twice, the second occurrence will never match.
+The definition of a filter is associated with a call back function -- here \texttt{receive0}. This function is called indirectly when the \texttt{dispatchReceivedMessage} method is called -- see \refSectionPage{UsingDispatchMethod}.
 
 
 
-\subsection{Primary and secondary filters}
 
-This is an example with one primary filter, and two secondary filters:
+
+
+
+
+{\bf Two filters.} For example:
 { \small\begin{lstlisting}[language=c++]
-void setup () {
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
-  ...
-  const ACANPrimaryFilter primaryFilters [] = {
-    ACANPrimaryFilter (kData, kExtended, 0x123456), // Filter #0
-  } ;
-  const ACANSecondaryFilter secondaryFilters [] = {
-    ACANSecondaryFilter (kData, kStandard, 0x234),    // Filter #1
-    ACANSecondaryFilter (kRemote, kStandard, 0x542)   // Filter #2
+  const ACAN2515Mask rxm0 = extended2515Mask (0x1FFFFFFF) ;
+  const ACAN2515AcceptanceFilter filters [] = {
+    {extended2515Filter (0x12345678), receive0}, // RXF0
+    {extended2515Filter (0x18765432), receive1}  // RXF1
   } ;
   const uint32_t errorCode = can.begin (settings,
-                                               primaryFilters, 
-                                               1, // Primary filter array size
-                                               secondaryFilters,
-                                               2) ; // Secondary filter array size
-  ...
-void loop () {
-  CANMessage message ;
-  if (can.receive (message)) { // Only frames that pass a filter are retrieved
-    if (!message.rtr && message.ext && (message.id == 0x123456)) {
-      handle_myMessage_0 (message) ; // Extended data frame, id is 0x123456
-    }else if (!message.rtr && !message.ext && (message.id == 0x234)) {
-      handle_myMessage_1 (message) ;  // Standard data frame, id is 0x234
-    }else if (message.rtr && !message.ext && (message.id == 0x542)) {
-      handle_myMessage_2 (message) ;  // Standard remote frame, id is 0x542
-    }
-  }
-  ...
-}
+                                        canISR,
+                                        rxm0, // Value set to RXM0 register
+                                        filters, // The filter array
+                                        2) ; // Filter array size
 \end{lstlisting}}
 
-
-{\bf Test order.} The \texttt{MCP2515} hardware performs sequentially:
-\begin{itemize}
-  \item testing the primary filters in the increasing order of their indexes in the \texttt{primaryFilters} constant array;
-  \item as soon as a match with a primary filter occurs, the message is transfered to Rx FIFO buffer and the examination process is completed;
-  \item if no match occurs, testing the secondary filters in the increasing order of their indexes in the \texttt{secondaryFilters} constant array;
-  \item as soon as a match with a secondary filter occurs, the message is transfered to Rx FIFO buffer and the examination process is completed;
-  \item if no match occurs, the message is lost.
-\end{itemize}
-
-A consequence is if a filter appears twice, the second occurrence will never match. If a secondary filter matches the same message that a primary filter, the secondary filter will never match.
+Here, two types of message are accepted, extended (data or remote) frames with an identifier equal to \texttt{0x12345678} or \texttt{0x18765432}. This defines explicitly \texttt{RXM0}, \texttt{RXF0} and \texttt{RXF1}; \texttt{RXM1} is set with \texttt{RXM0} value, and the \texttt{RXF2} to \texttt{RXF5} registers are set with the \texttt{RXF1} value. No message will be accepted by \texttt{RXB1} filters.
 
 
-\subsectionLabel{Secondary filter as pass-all filter}{passAllSecondaryFilter}
 
-You can specify a secondary filter that matches any frame: 
+
+
+
+
+
+
+
+{\bf Three to five filters.} For example, with four filters:
 { \small\begin{lstlisting}[language=c++]
-    ACANSecondaryFilter ()
-\end{lstlisting}}
-
-You can use it for accepting all frames that did not match previous filters:
-{ \small\begin{lstlisting}[language=c++]
-void setup () {
-  ...
-  const ACANSecondaryFilter secondaryFilters [] = {
-    ACANSecondaryFilter (kData, kExtended, 0x123456), // Filter #0
-    ACANSecondaryFilter (kData, kStandard, 0x234),    // Filter #1
-    ACANSecondaryFilter (kRemote, kStandard, 0x542),  // Filter #2
-    ACANSecondaryFilter ()                            // Filter #3
-  } ; // Filter #3 catches any message that did not match filters #0, #1 and #2
-  ...
-}
-\end{lstlisting}}
-
-Be aware if the pass-all filter is not the last one, following ones will never match.
-{ \small\begin{lstlisting}[language=c++]
-void setup () {
-  ...
-  const ACANSecondaryFilter primaryFilters [] = {
-    ACANSecondaryFilter (kData, kExtended, 0x123456), // Filter #0
-    ACANSecondaryFilter (kData, kStandard, 0x234),    // Filter #1
-    ACANSecondaryFilter (),                           // Filter #2
-    ACANSecondaryFilter (kRemote, kStandard, 0x542)   // Filter #3
-  } ; // Filter #3 will never match
-  ...
-}
-\end{lstlisting}}
-
-If you use a primary pass-all filter, secondary filters will never match:
-{ \small\begin{lstlisting}[language=c++]
-void setup () {
-  ...
-  const ACANPrimaryFilter primaryFilters [] = {
-    ACANPrimaryFilter (kData, kExtended, 0x123456) // Filter #0
-    ACANPrimaryFilter (),                          // Filter #1 - pass-all
-  } ;
-  const ACANSecondaryFilter secondaryFilters [] = {
-    ACANSecondaryFilter (kData, kStandard, 0x234),  // Filter never matches
-    ACANSecondaryFilter (kRemote, kStandard, 0x542) // Filter never matches
-  } ;
-  ...
-\end{lstlisting}}
-
-
-
-\subsectionLabel{Secondary filter conformance}{secondaryFilterConformance}
-
-The pass-all secondary filter (\refSubsectionPage{passAllSecondaryFilter}) always conforms.
-
-For a standard frame (11-bit identifier), a secondary filter definition is conform if the given identifier value is lower or equal to \texttt{0x7FF}.
-
-For a extended frame (29-bit identifier), a secondary filter definition is conform if the given identifier value is lower or equal to \texttt{0x1FFF\_FFFF}.
-
-
-
-
-\subsectionLabel{The \texttt{receive} method revisited}{usingIDXvalueWithSecondaryFilter}
-
-The \texttt{receive} method retrieves a received message. When you define primary and secondary filters, the value of the \texttt{idx} property of the \texttt{message} is the matching filter index. Filters are numbering from 0, starting by the first element of the first primary filter array until the last one, and continuing from the first element of the secondary filter array, until its last element. So the the \texttt{idx} property  of the \texttt{message} can be used for dispatching the received message:
-
-{ \small\begin{lstlisting}[language=c++]
-void setup () {
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
-  ...
-  const ACANPrimaryFilter primaryFilters [] = {
-    ACANPrimaryFilter (kData, kExtended, 0x123456), // Filter #0
-  } ;
-  const ACANSecondaryFilter secondaryFilters [] = {
-    ACANSecondaryFilter (kData, kStandard, 0x234),    // Filter #1
-    ACANSecondaryFilter (kRemote, kStandard, 0x542)   // Filter #2
+  const ACAN2515Mask rxm0 = extended2515Mask (0x1FFFFFFF) ;
+  const ACAN2515Mask rxm1 = standard2515Mask (0x7FF, 0, 0) ;
+  const ACAN2515AcceptanceFilter filters [] = {
+    {extended2515Filter (0x12345678), receive0}, // RXF0
+    {extended2515Filter (0x18765432), receive1}, // RXF1
+    {standard2515Filter (0x567, 0, 0), receive2},// RXF2
+    {standard2515Filter (0x123, 0, 0), receive3} // RXF3
   } ;
   const uint32_t errorCode = can.begin (settings,
-                                               primaryFilters, 1,
-                                               secondaryFilters, 2) ;
-  ...
-}
-
-void loop () {
-  CANMessage message ;
-  if (can.receive (message)) { // Only frames that pass a filter are retrieved
-    switch (message.idx) {
-    case 0:
-      handle_myMessage_0 (message) ; // Extended data frame, id is 0x123456
-      break ;
-    case 1:
-      handle_myMessage_1 (message) ;  // Standard data frame, id is 0x234
-      break ;
-    case 2:
-      handle_myMessage_2 (message) ;  // Standard remote frame, id is 0x542
-      break ;
-    default:
-      break ;
-    }
-  }
-  ...
-}
+                                        canISR,
+                                        rxm0, // Value set to RXM0 register
+                                        rxm1, // Value set to RXM1 register
+                                        filters, // The filter array
+                                        4) ; // Filter array size
 \end{lstlisting}}
 
-An improvement is to use the \texttt{dispatchReceivedMessage} method -- see \refSectionPage{UsingDispatchMethod}.
+Four types of message are accepted, extended (data or remote) frames with an identifier equal to \texttt{0x12345678} or \texttt{0x18765432}, and standard (data or remote) frames with an identifier equal to \texttt{0x567} or \texttt{0x123}. The \texttt{RXF4} and \texttt{RXF5} registers are set with the \texttt{RXF3} value.
 
 
 
 
 
+
+
+
+{\bf Six filters.} For example, with four filters:
+{ \small\begin{lstlisting}[language=c++]
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
+  const ACAN2515Mask rxm0 = extended2515Mask (0x1FFFFFFF) ;
+  const ACAN2515Mask rxm1 = standard2515Mask (0x7FF, 0, 0) ;
+  const ACAN2515AcceptanceFilter filters [] = {
+    {extended2515Filter (0x12345678), receive0}, // RXF0
+    {extended2515Filter (0x18765432), receive1}, // RXF1
+    {standard2515Filter (0x567, 0, 0), receive2},// RXF2
+    {standard2515Filter (0x123, 0, 0), receive3},// RXF3
+    {standard2515Filter (0x777, 0, 0), receive4},// RXF4
+    {standard2515Filter (0x3AB, 0, 0), receive5} // RXF5
+  } ;
+  const uint32_t errorCode = can.begin (settings,
+                                        canISR,
+                                        rxm0, // Value set to RXM0 register
+                                        rxm1, // Value set to RXM1 register
+                                        filters, // The filter array
+                                        6) ; // Filter array size
+\end{lstlisting}}
+
+Six types of message are accepted, all filter registers are explicitly defined.
+
+
+
+
+
+
+
+
+
+
+\subsubsection{Extended frames acceptance}
+
+The \texttt{extended2515Mask} and \texttt{extended2515Filter} functions helps you to define extended frame filters. Extended frame filters test extended identifier value.
+
+The acceptance criterion is\footnote{See 4.5 DS20001801H, \emph{Message Acceptance Filters and Masks}, page 33.}:
+
+\begin{center}
+\texttt{acceptance\_mask} \& (\texttt{received\_identifier} \texttt{nXOR} \texttt{acceptance\_filter}) == 0
+\end{center}
+where \& is the bit-wise \emph{and} operator, and \texttt{nXOR} is the \emph{not xor} bit-wise operator.
+
+{\bf Accepting all extended frames.}
+{ \small\begin{lstlisting}[language=c++]
+  const ACAN2515Mask rxm0 = extended2515Mask (0) ;
+\end{lstlisting}}
+No extended frame identifier bit is tested, all extended frames are accepted.
+
+{\bf Accepting individual extended frames.}
+{ \small\begin{lstlisting}[language=c++]
+  const ACAN2515Mask rxm0 = extended2515Mask (0x1FFFFFFF) ;
+\end{lstlisting}}
+All extended frame identifier bits are tested, only extended frames whose identifiers match the filters are accepted.
+
+
+{\bf Accepting several identifiers.}
+The bits at 0 of the mask correspond to bits that are not tested for acceptance. For example:
+{ \small\begin{lstlisting}[language=c++]
+  const ACAN2515Mask rxm0 = extended2515Mask (0x1FFFFF0F) ;
+\end{lstlisting}}
+
+If you define an acceptance filter by \texttt{extended2515Filter (0x12345608)}, any extended frame with an identifier equal to \texttt{0x123456$x$8} is accepted.
+
+
+
+
+
+
+
+
+
+
+
+
+\subsubsection{Standard frames acceptance}
+
+The \texttt{standard2515Mask} and \texttt{standard2515Filter} functions helps you to define extended frame filters. Standard frame filters test standard identifier value, first and second data byte.
+
+The acceptance criterion is\footnote{See 4.5 DS20001801H, \emph{Message Acceptance Filters and Masks}, page 33.}:
+
+\begin{center}\small
+\texttt{acceptance\_mask} \& (\texttt{(received\_identifier, data\_byte$_0$, data\_byte$_1$)} \texttt{nXOR} \texttt{acceptance\_filter}) == 0
+\end{center}
+where \& is the bit-wise \emph{and} operator, and \texttt{nXOR} is the \emph{not xor} bit-wise operator.
+
+{\bf Accepting all standard frames, without testing data bytes.}
+{ \small\begin{lstlisting}[language=c++]
+  const ACAN2515Mask rxm0 = standard2515Mask (0, 0, 0) ;
+\end{lstlisting}}
+
+{\bf Accepting individual standard frames, without testing data bytes.}
+{ \small\begin{lstlisting}[language=c++]
+  const ACAN2515Mask rxm0 = standard2515Mask (0x7FF, 0, 0) ;
+\end{lstlisting}}
+All standard frame identifier bits are tested, only standard frames whose identifiers match the filters are accepted.
+
+
+{\bf Accepting several identifiers, without testing data bytes.}
+The bits at 0 of the mask correspond to bits that are not tested for acceptance. For example:
+{ \small\begin{lstlisting}[language=c++]
+  const ACAN2515Mask rxm0 = standard2515Mask (0x70F, 0, 0) ;
+\end{lstlisting}}
+
+If you define an acceptance filter by \texttt{standard2515Filter (0x40A, 0, 0)}, any standard frame with an identifier equal to \texttt{0x4$x$A} is accepted.
+
+
+
+
+{\bf Filtering from first data byte.}
+The second argument of \texttt{standard2515Mask} specify first data byte filtering. For example:
+{ \small\begin{lstlisting}[language=c++]
+  const ACAN2515Mask rxm0 = standard2515Mask (0x70F, 0xFF, 0) ;
+\end{lstlisting}}
+
+If you define an acceptance filter by \texttt{standard2515Filter (0x40A, 0x54, 0)}, any standard frame with an identifier equal to \texttt{0x4$x$A} and first byte equal to \texttt{0x54} is accepted.
+
+{\bf Empty standard frame.} An empty standard frame (without any data byte) is accepted, the filtering condition on the first data byte is ignored (see \texttt{loopbackFilterDataByte} sample sketch).
 
 
 
@@ -1531,29 +1354,14 @@ An improvement is to use the \texttt{dispatchReceivedMessage} method -- see \ref
 
 \sectionLabel{The \texttt{dispatchReceivedMessage} method}{UsingDispatchMethod}
 
-The last improvement is to call the \texttt{dispatchReceivedMessage} method -- do not call the \texttt{receive} method any more. You can use it if you have defined primary and / or secondary filters that name a call-back function.
+{\bf Sample sketch: } the \texttt{loopbackUsingFilters} shows how using the \texttt{dispatchReceivedMessage} method.
 
-The primary and secondary filter constructors have as a last argument a call back function pointer. It defaults to \texttt{NULL}, so until now the code snippets do not  use it.
+Instead of calling the \texttt{receive} method, call the \texttt{dispatchReceivedMessage} method in your \texttt{loop} function. It calls the call back function associated with the matching filter.
 
-For enabling the use of the \texttt{dispatchReceivedMessage} method, you add to each filter definition as last argument the function that will handle the message. In the \texttt{loop} function, call the \texttt{dispatchReceivedMessage} method: it dispatches the messages to the call back functions.
+If you have not defined any filter, do not use this function, call the \texttt{receive} method.
+
 
 { \small\begin{lstlisting}[language=c++]
-void setup () {
-  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
-  ...
-  const ACANPrimaryFilter primaryFilters [] = {
-    ACANPrimaryFilter (kData, kExtended, 0x123456, handle_myMessage_0)
-  } ;
-  const ACANSecondaryFilter secondaryFilters [] = {
-    ACANSecondaryFilter (kData, kStandard, 0x234, handle_myMessage_1),
-    ACANSecondaryFilter (kRemote, kStandard, 0x542, handle_myMessage_2)
-  } ;
-  const uint32_t errorCode = can.begin (settings,
-                                               primaryFilters, 1,
-                                               secondaryFilters, 2) ;
-  ...
-}
-
 void loop () {
   can.dispatchReceivedMessage () ; // Do not use can.receive any more
   ...
@@ -1575,22 +1383,7 @@ void loop () {
 }
 \end{lstlisting}}
 
-If a filter definition does not name a call back function, the corresponding messages are lost. In the code below, filter \#1 does not name a call back function, standard data frames with identifier \texttt{0x234} are lost.
-
-{ \small\begin{lstlisting}[language=c++]
-void setup () {
-  ...
-  const ACANPrimaryFilter primaryFilters [] = {
-    ACANPrimaryFilter (kData, kExtended, 0x123456, handle_myMessage_0)
-  } ;
-  const ACANSecondaryFilter secondaryFilters [] = {
-    ACANSecondaryFilter (kData, kStandard, 0x234), // Filter #1
-    ACANSecondaryFilter (kRemote, kStandard, 0x542, handle_myMessage_2)
-  } ;
-  ...
-}
-\end{lstlisting}}
-
+If a filter definition does not name a call back function, the corresponding messages are lost.
 
 The \texttt{dispatchReceivedMessage} method has an optional argument -- \texttt{NULL} by default: a function name. This function is called for every message that pass the receive filters, with an argument equal to the matching filter index:
 
@@ -1605,55 +1398,41 @@ void loop () {
 }
 \end{lstlisting}}
 
-You can use this function for maintaining statitistics about receiver filter matches.
+You can use this function for maintaining statistics about receiver filter matches.
 
 
-\sectionLabel{The \texttt{ACAN::begin} method reference}{beginMethodReference}
+\sectionLabel{The \texttt{ACAN2515::begin} method reference}{beginMethodReference}
 
-\subsection{The \texttt{ACAN::begin} method prototype}
+\subsection{The \texttt{ACAN2515::begin} method prototypes}
 
-The \texttt{begin} method prototype is:
+There are three \texttt{begin} method prototypes:
 { \small\begin{lstlisting}[language=c++]
-uint32_t ACAN::begin (const ACAN2515Settings & inSettings,
-                      const ACANPrimaryFilter inPrimaryFilters [] = NULL,
-                      const uint32_t inPrimaryFilterCount = 0,
-                      const ACANSecondaryFilter inSecondaryFilters [] = NULL,
-                      const uint32_t inSecondaryFilterCount = 0) ;
-\end{lstlisting}}
-
-The four last arguments have default values.
-
-Omitting the last argument makes no secondary filter is defined:
-{ \small\begin{lstlisting}[language=c++]
-const uint32_t errorCode = can.begin (settings,
-                                             primaryFilters, primaryFilterCount,
-                                             secondaryFilters) ;
-\end{lstlisting}}
-
-
-
-Omitting the last two arguments makes no secondary filter is defined:
-{ \small\begin{lstlisting}[language=c++]
-const uint32_t errorCode = can.begin (settings, primaryFilters, primaryFilterCount) ;
-\end{lstlisting}}
-
-Omitting the last three or the last four arguments makes no primary and no secondary filter is defined -- so any (data / remote, standard / extended) frame is received:
-{ \small\begin{lstlisting}[language=c++]
-const uint32_t errorCode = can.begin (settings, primaryFilters) ;
+uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings,
+                          void (* inInterruptServiceRoutine) (void)) ;
 \end{lstlisting}}
 
 { \small\begin{lstlisting}[language=c++]
-const uint32_t errorCode = can.begin (settings) ;
+uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings,
+                          void (* inInterruptServiceRoutine) (void),
+                          const ACAN2515Mask inRXM0,
+                          const ACAN2515AcceptanceFilter inAcceptanceFilters [],
+                          const uint32_t inAcceptanceFilterCount) ;
 \end{lstlisting}}
 
-
+{ \small\begin{lstlisting}[language=c++]
+uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings,
+                          void (* inInterruptServiceRoutine) (void),
+                          const ACAN2515Mask inRXM0,
+                          const ACAN2515Mask inRXM1,
+                          const ACAN2515AcceptanceFilter inAcceptanceFilters [],
+                          const uint32_t inAcceptanceFilterCount) ;
+\end{lstlisting}}
 
 
 
 \subsectionLabel{The error code}{errorCodeMethodBegin}
 
-The \texttt{begin} method returns an error code. The value \texttt{0} denotes no error. Otherwise, you consider every bit as an error flag, as described in \refTableau{beginErrorCode}. An error code could report several errors.
-
+The \texttt{ACAN2515::begin} method returns an error code. The value \texttt{0} denotes no error. Otherwise, you consider every bit as an error flag, as described in \refTableau{beginErrorCode}. An error code could report several errors. The \texttt{ACAN2515} class defines static constants for naming errors.
 
 
 \begin{table}[!ht]
@@ -1661,141 +1440,102 @@ The \texttt{begin} method returns an error code. The value \texttt{0} denotes no
   \onehalfspacing
   \centering
   \begin{tabular}{lllllllllp{6cm}l}
-    \multicolumn{9}{c}{\textbf{Error Codes}} & \textbf{Comment} & \textbf{Link}\\
-    31 -- 8 & 7 & 6 & 5 & 4 & 3 & 2 & 1 & 0 & & \\
-    \texttt{0} ...  \texttt{0} &\texttt{0} &\texttt{0} &\texttt{0} &\texttt{0} &\texttt{0} &\texttt{0} &\texttt{0} &\texttt{0} & No error & \\
-    \texttt{0} ...  \texttt{0} &\texttt{0} &\texttt{0} &\texttt{0} &\texttt{0} &\texttt{0} &\texttt{0} &\texttt{0} &\texttt{1} & CAN Bit configuration too far from wished bit rate & \refSubsubsectionPage{CANBitTooFarError}\\
-    \texttt{0} ...  \texttt{0} &\texttt{0} &\texttt{0} &\texttt{0} &\texttt{0} &\texttt{0} &\texttt{0} &\texttt{1} &\texttt{0} & Inconsistent CAN Bit configuration & \refSubsubsectionPage{CANBitInconsistentConfigError}\\
-    \texttt{0} ...  \texttt{0} &\texttt{x}&\texttt{x} &\texttt{x} &\texttt{x} &\texttt{x} &\texttt{1} &\texttt{0} &\texttt{0} & Too much primary filters & \refSubsubsectionPage{tooMuchPrimaryFiltersError}\\
-    \texttt{0} ...  \texttt{0} &\texttt{x} &\texttt{x} &\texttt{x} &\texttt{x} &\texttt{1} &\texttt{x} &\texttt{0} &\texttt{0} & Primary filter conformance error &  \refSubsectionPage{primaryFilterConformanceError}\\
-    \texttt{0} ...  \texttt{0} &\texttt{x}&\texttt{x} &\texttt{x} &\texttt{1} &\texttt{x} &\texttt{x} &\texttt{0} &\texttt{0} & Too much secondary filters & \refSubsubsectionPage{tooMuchSecondaryFiltersError}\\
-    \texttt{0} ...  \texttt{0} &\texttt{x}&\texttt{x} &\texttt{1} &\texttt{x} &\texttt{x} &\texttt{x} &\texttt{0} &\texttt{0} & Secondary filter conformance error &  \refSubsubsectionPage{secondaryFilterConformanceError}\\
-    \texttt{0} ...  \texttt{0} &\texttt{x}&\texttt{1} &\texttt{x} &\texttt{x} &\texttt{x} &\texttt{x} &\texttt{0} &\texttt{0} & \texttt{ACAN::can1} has no Tx alternate pin & \refSubsubsectionPage{noAlternateTxPinError}\\
-    \texttt{0} ...  \texttt{0} &\texttt{1}&\texttt{x} &\texttt{x} &\texttt{x} &\texttt{x} &\texttt{x} &\texttt{0} &\texttt{0} & \texttt{ACAN::can1} has no Rx alternate pin & \refSubsubsectionPage{noAlternateRxPinError} \\
+    \textbf{Bit} & \textbf{Static constant Name}         & \textbf{Link}\\
+    \texttt{0} & \texttt{kNoMCP2515} & \refSubsubsectionPage{kNoMCP2515}\\
+    \texttt{1} & \texttt{kTooFarFromDesiredBitRate} & \refSubsubsectionPage{kTooFarFromDesiredBitRate} \\
+    \texttt{2} & \texttt{kInconsistentBitRateSettings} & \refSubsubsectionPage{kInconsistentBitRateSettings} \\
+    \texttt{3} & \texttt{kINTPinIsNotAnInterrupt} & \refSubsubsectionPage{kINTPinIsNotAnInterrupt} \\
+    \texttt{4} & \texttt{kISRIsNull}  & \refSubsubsectionPage{kISRIsNull} \\
+    \texttt{5} & \texttt{kRequestedModeTimeOut} & \refSubsubsectionPage{kRequestedModeTimeOut}\\
+    \texttt{6} & \texttt{kAcceptanceFilterArrayIsNULL} & \refSubsubsectionPage{kAcceptanceFilterArrayIsNULL} \\
+    \texttt{7} & \texttt{kOneFilterMaskRequiresOneOrTwoAcceptanceFilters} & \refSubsubsectionPage{kOneFilterMaskRequiresOneOrTwoAcceptanceFilters} \\
+    \texttt{8} & \texttt{kTwoFilterMasksRequireThreeToSixAcceptanceFilters} & \refSubsubsectionPage{kTwoFilterMasksRequireThreeToSixAcceptanceFilters}\\
   \end{tabular}
-  \caption{The \texttt{ACAN::begin} method error codes}
+  \caption{The \texttt{ACAN2515::begin} method error code bits}
   \labelTableau{beginErrorCode}
 \end{table}
 
-The \texttt{ACAN} class defines bit error masks as public static constant properties: 
-{ \small\begin{lstlisting}[language=c++]
-public: static const uint32_t kCANBitConfigurationTooFarFromWishedBitRate = 1 << 0 ;
-public: static const uint32_t kCANBitInconsistentConfiguration            = 1 << 1 ;
-public: static const uint32_t kTooMuchPrimaryFilters                      = 1 << 2 ;
-public: static const uint32_t kNotConformPrimaryFilter                    = 1 << 3 ;
-public: static const uint32_t kTooMuchSecondaryFilters                    = 1 << 4 ;
-public: static const uint32_t kNotConformSecondaryFilter                  = 1 << 5 ;
-public: static const uint32_t kNoAlternateTxPinForCan1                    = 1 << 6 ;
-public: static const uint32_t kNoAlternateRxPinForCan1                    = 1 << 7 ;
-\end{lstlisting}}
 
-For example, you can write:
-{ \small\begin{lstlisting}[language=c++]
-const uint32_t errorCode = can.begin (settings,
-                                             primaryFilters, primaryFilterCount,
-                                             secondaryFilters, secondaryFilterCount) ;
-if (errorCode != 0) {
-  // Error(s)
-  if (errorCode & ACAN::kTooMuchPrimaryFilters) {
-    // Error: too much primary filters
-  }
-  ...
-}
-\end{lstlisting}}
 
-\subsubsectionLabel{CAN Bit setting too far from wished rate}{CANBitTooFarError}
 
-This error is raised when the \texttt{mBitConfigurationClosedToWishedRate} of the \texttt{settings} object is false. This means that the \texttt{ACAN2515Settings} constructor cannot compute a CAN bit configuration close enough to the wished bit rate. When the \texttt{begin} is called with \texttt{settings.mBitConfigurationClosedToWishedRate} false, this error is reported. For example:
+\subsubsectionLabel{\texttt{kNoMCP2515}}{kNoMCP2515}
+
+The \texttt{ACAN2515::begin} method checks accessibility by writing and reading back the \texttt{CNF1\_REGISTER} first with the \texttt{0x55} value, then with the \texttt{0xAA} value. This error is raised when the read value is different from the written one. It means that the \texttt{MCP2515} cannot be accessed via SPI. 
+
+\subsubsectionLabel{\texttt{kTooFarFromDesiredBitRate}}{kTooFarFromDesiredBitRate}
+
+This error occurs when the \texttt{mBitConfigurationClosedToDesiredRate} property of the \texttt{settings} object is \texttt{false}. This means that the \texttt{ACAN2515Settings} constructor cannot compute a CAN bit configuration close enough to the desired bit rate. For example:
 
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 1) ; // 1 bit/s !!!
-  // Here, settings.mBitConfigurationClosedToWishedRate is false
+  // Here, settings.mBitConfigurationClosedToDesiredRate is false
   const uint32_t errorCode = can.begin (settings) ;
-  // Here, errorCode == ACAN::kCANBitConfigurationTooFarFromWishedBitRateErrorMask
+  // Here, errorCode contains ACAN2515::kCANBitConfigurationTooFarFromWishedBitRate
 }
 \end{lstlisting}}
 
-This error is a fatal error, the driver and the \texttt{MCP2515} module are not configured. See \refSubsectionPage{CANbitSettings} for a discussion about CAN bit setting computation.
-
-
-\subsubsectionLabel{CAN Bit inconsistent configuration error}{CANBitInconsistentConfigError}
-
-This error is raised when you have changed the CAN bit properties (\texttt{mBitRatePrescaler}, \texttt{mPropagationSegment}, \texttt{mPhaseSegment1}, \texttt{mPhaseSegment2}, \texttt{mRJW}), and one or more resulting values are inconsistent. See \refSubsectionPage{CANBitSettingConsistency}.
-
-%The constraints are:
-%\begin{align*}
-%1 & \leqslant \texttt{mBitRatePrescaler} \leqslant 256 \\
-%1 & \leqslant \texttt{mRJW} \leqslant 4 \\
-%1 & \leqslant \texttt{mPropagationSegment} \leqslant 8 \\
-%\text{Single sampling: }1 & \leqslant \texttt{mPhaseSegment1} \leqslant 8\\
-%\text{Triple sampling: }2 & \leqslant \texttt{mPhaseSegment1} \leqslant 8\\
-%2 & \leqslant \texttt{mPhaseSegment2} \leqslant 8 \\
-%\texttt{mRJW} &\leqslant \texttt{mPhaseSegment2}
-%\end{align*}
-%
-%Resulting bit rate is given by:
-%{\small
-%\begin{align*}
-%\text{Actual bit rate} & = \frac{16~\text{MHz}}{\texttt{mBitRatePrescaler} \cdot (1 + \texttt{mPropagationSegment} + \texttt{mPhaseSegment1} + \texttt{mPhaseSegment2})}
-%\end{align*}
-%}
-%
-%And sampling point (in per-cent unit) are given by:
-%{\small
-%\begin{align*}
-%\text{Sampling point {\it(single sampling)}} & = 100 \cdot \frac{1 + \texttt{mPropagationSegment} + \texttt{mPhaseSegment1}}{1 + \texttt{mPropagationSegment} + \texttt{mPhaseSegment1} + \texttt{mPhaseSegment2}}  \\
-%  & \\
-%\text{Sampling first point {\it(triple sampling)}} & = 100 \cdot \frac{\texttt{mPropagationSegment} + \texttt{mPhaseSegment1}}{1 + \texttt{mPropagationSegment} + \texttt{mPhaseSegment1} + \texttt{mPhaseSegment2}}
-%\end{align*}
-%}
-%
-%does  of the \texttt{settings} object is false. This means that the \texttt{ACAN2515Settings} constructor cannot compute a CAN bit  for the given bit rate. When the \texttt{begin} is called with \texttt{settings.mBitConfigurationClosedToWishedRate} false, this error is reported. For example:
-%
-%{ \small\begin{lstlisting}[language=c++]
-%void setup () {
-%  ACAN2515Settings settings (1) ; // 1 bit/s !!!
-%  // here, settings.mBitConfigurationClosedToWishedRate is false
-%  const uint32_t errorCode = can.begin (settings) ;
-%  // here, errorCode is equal to ACAN::kCANBitConfigurationTooFarFromWishedBitRateErrorMask, i.e. 1
-%}
-%\end{lstlisting}}
-%
-%This error is a fatal error, the driver and the \texttt{MCP2515} module are not configured. See \refSubsectionPage{CANbitSettings} for a discussion about CAN bit setting computation.
 
 
 
+\subsubsectionLabel{\texttt{kInconsistentBitRateSettings}}{kInconsistentBitRateSettings}
 
-\subsubsectionLabel{Too much primary filters error}{tooMuchPrimaryFiltersError}
-
-The number of \emph{primary filters} is limited. See \refSectionPage{FlexCANconfiguration} for getting the number of \emph{primary filters} for each configuration, and for changing default value.
-
-\subsectionLabel{Primary filters  conformance error}{primaryFilterConformanceError}
-
-One or several primary filters do not conform: see \refSubsectionPage{primaryFilterConformance}. Comment out primary filter definitions until finding the faultly definition.
-
-
-\subsubsectionLabel{Too much secondary filters error}{tooMuchSecondaryFiltersError}
-
-The number of \emph{secondary filters} is limited. See \refSectionPage{FlexCANconfiguration} for getting the number of \emph{secondary filters} for each configuration, and for changing default value.
+The \texttt{ACAN2515Settings} constructor allways returns consistent bit rate settings -- even if the settings provide a bit rate too far away the desired bit rate. So this error occurs only when you have changed the CAN bit properties (\texttt{mBitRatePrescaler}, \texttt{mPropagationSegment}, \texttt{mPhaseSegment1}, \texttt{mPhaseSegment2}, \texttt{mRJW}), and one or more resulting values are inconsistent. See \refSubsectionPage{CANBitSettingConsistency}.
 
 
 
 
 
-\subsubsectionLabel{Secondary filter conformance error}{secondaryFilterConformanceError}
-
-One or several secondary filters do not conform: see \refSubsectionPage{secondaryFilterConformance}. Comment out secondary filter definitions until finding the faultly definition.
 
 
-\subsubsectionLabel{No alternate Tx pin error}{noAlternateTxPinError}
-
-In the Teensy 3.6, \texttt{ACAN::can1} does not support alternate Tx pin.
 
 
-\subsubsectionLabel{No alternate Rx pin error}{noAlternateRxPinError}
 
-In the Teensy 3.6, \texttt{ACAN::can1} does not support alternate Rx pin.
+
+\subsubsectionLabel{\texttt{kINTPinIsNotAnInterrupt}}{kINTPinIsNotAnInterrupt}
+
+The pin you provide for handling the \texttt{MCP2515} interrupt has no interrupt capability.
+
+\subsubsectionLabel{\texttt{kISRIsNull}}{kISRIsNull}
+
+The interrupt service routine argument is \texttt{NULL}, you should provide a valid function.
+
+
+\subsubsectionLabel{\texttt{kRequestedModeTimeOut}}{kRequestedModeTimeOut}
+
+During configuration by the \texttt{ACAN2515::begin} method, the  \texttt{MCP2515} is in the \emph{configuration} mode. At this end of this process, the mode specified by the \texttt{inSettings.mRequestedMode} value is requested. The switch to this mode is not immediate, a register is repetitively read for checking the switch is done. This error is raised if the switch is not completed within a delay between 1 ms and 2 ms.
+
+
+
+
+
+
+\subsubsectionLabel{\texttt{kAcceptanceFilterArrayIsNULL}}{kAcceptanceFilterArrayIsNULL}
+
+The \texttt{ACAN2515::begin} method you have called names the \texttt{inAcceptanceFilters} argument, but it is \texttt{NULL}.
+
+
+
+
+
+
+\subsubsectionLabel{\texttt{kOneFilterMaskRequiresOneOrTwoAcceptanceFilters}}{kOneFilterMaskRequiresOneOrTwoAcceptanceFilters}
+
+The \texttt{ACAN2515::begin} method you have called names the \texttt{inRXM0} argument (but not \texttt{inRXM1}), you should provide the value $1$ or $2$ to the \texttt{inAcceptanceFilterCount} argument.
+
+
+
+
+
+
+
+\subsubsectionLabel{\texttt{kTwoFilterMasksRequireThreeToSixAcceptanceFilters}}{kTwoFilterMasksRequireThreeToSixAcceptanceFilters}
+
+The \texttt{ACAN2515::begin} method you have called names the \texttt{inRXM0} and the the \texttt{inRXM1} arguments, you should provide the value $3$ to $6$ to the \texttt{inAcceptanceFilterCount} argument.
+
+
+
+
 
 
 
@@ -1814,11 +1554,11 @@ In the Teensy 3.6, \texttt{ACAN::can1} does not support alternate Rx pin.
 
 \subsectionLabel{The \texttt{ACAN2515Settings} constructor: computation of the CAN bit settings}{CANbitSettings}
 
-The constructor of the \texttt{ACAN2515Settings} has one mandatory argument: the wished bit rate. It tries to compute the CAN bit settings for this bit rate. If it succeeds, the constructed object has its \texttt{mBitConfigurationClosedToWishedRate} property set to \texttt{true}, otherwise it is set to \texttt{false}. For example:
+The constructor of the \texttt{ACAN2515Settings} has one mandatory argument: the wished bit rate. It tries to compute the CAN bit settings for this bit rate. If it succeeds, the constructed object has its \texttt{mBitConfigurationClosedToDesiredRate} property set to \texttt{true}, otherwise it is set to \texttt{false}. For example:
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 1 * 1000 * 1000) ; // 1 Mbit/s
-  // Here, settings.mBitConfigurationClosedToWishedRate is true
+  // Here, settings.mBitConfigurationClosedToDesiredRate is true
   ...
 }
 \end{lstlisting}}
@@ -1828,8 +1568,8 @@ Of course, CAN bit computation always succeeds for classical bit rates: 1 Mbit/s
 void setup () {
   Serial.begin (9600) ;
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 842 * 1000) ; // 842 kbit/s
-  Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
+  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 1 (--> is true)
   Serial.print ("actual bit rate: ") ;
   Serial.println (settings.actualBitRate ()) ; //  842105 bit/s
   Serial.print ("distance: ") ;
@@ -1846,8 +1586,8 @@ By default, a wished bit rate is accepted if the distance from the computed actu
 void setup () {
   Serial.begin (9600) ;
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 842 * 1000, 100) ; // 842 kbit/s, max distance is 100 ppm
-  Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 0 (--> is false)
+  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 0 (--> is false)
   Serial.print ("actual bit rate: ") ;
   Serial.println (settings.actualBitRate ()) ; //  842105 bit/s
   Serial.print ("distance: ") ;
@@ -1856,13 +1596,13 @@ void setup () {
 }
 \end{lstlisting}}
 
-The second argument does not change the CAN bit computation, it only changes the acceptance test for setting the \texttt{mBitConfigurationClosedToWishedRate} property. For example, you can specify that you want the computed actual bit to be exactly the wished bit rate:
+The second argument does not change the CAN bit computation, it only changes the acceptance test for setting the \texttt{mBitConfigurationClosedToDesiredRate} property. For example, you can specify that you want the computed actual bit to be exactly the wished bit rate:
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   Serial.begin (9600) ;
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 500 * 1000, 0) ; // 500 kbit/s, max distance is 0 ppm
-  Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
+  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 1 (--> is true)
   Serial.print ("actual bit rate: ") ;
   Serial.println (settings.actualBitRate ()) ; //  500,000 bit/s
   Serial.print ("distance: ") ;
@@ -1882,8 +1622,8 @@ In any way, the bit rate computation always gives a consistent result, resulting
 void setup () {
   Serial.begin (9600) ;
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 440 * 1000) ; // 440 kbit/s 
-  Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 0 (--> is false)
+  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 0 (--> is false)
   Serial.print ("actual bit rate: ") ;
   Serial.println (settings.actualBitRate ()) ; //  444,444 bit/s
   Serial.print ("distance: ") ;
@@ -1898,8 +1638,8 @@ You can get the details of the CAN bit decomposition. For example:
 void setup () {
   Serial.begin (9600) ;
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 440 * 1000) ; // 440 kbit/s 
-  Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 0 (--> is false)
+  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 0 (--> is false)
   Serial.print ("actual bit rate: ") ;
   Serial.println (settings.actualBitRate ()) ; //  444,444 bit/s
   Serial.print ("distance: ") ;
@@ -1935,8 +1675,8 @@ You can change the property values for adapting to the particularities of your C
 void setup () {
   Serial.begin (9600) ;
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 500 * 1000) ; // 500 kbit/s
-  Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
+  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 1 (--> is true)
   settings.mPhaseSegment1 ++ ; // 5 -> 6: safe, 1 <= PS1 <= 8
   settings.mPhaseSegment2 -- ; // 5 -> 4: safe, 2 <= PS2 <= 8 and RJW <= PS2
   Serial.print ("Sample Point: ") ;
@@ -1997,8 +1737,8 @@ This method checks the CAN bit decomposition (given by \texttt{mBitRatePrescaler
 void setup () {
   Serial.begin (9600) ;
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 500 * 1000) ; // 500 kbit/s
-  Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
+  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 1 (--> is true)
   settings.mPhaseSegment1 = 0 ; // Error, mPhaseSegment1 should be >= 1 (and <= 8)
   Serial.print ("Consistency: 0x") ;
   Serial.println (settings.CANBitSettingConsistency (), HEX) ; // 0x10, meaning error
@@ -2066,8 +1806,8 @@ The \texttt{actualBitRate} method returns the actual bit computed from \texttt{m
 void setup () {
   Serial.begin (9600) ;
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 440 * 1000) ; // 440 kbit/s 
-  Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 0 (--> is false)
+  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 0 (--> is false)
   Serial.print ("actual bit rate: ") ;
   Serial.println (settings.actualBitRate ()) ; //  444,444 bit/s
   ...
@@ -2095,8 +1835,8 @@ The \texttt{exactBitRate} method returns \texttt{true} if the actual bit rate is
 void setup () {
   Serial.begin (9600) ;
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 842 * 1000) ; // 842 kbit/s
-  Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
+  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 1 (--> is true)
   Serial.print ("actual bit rate: ") ;
   Serial.println (settings.actualBitRate ()) ; //  842105 bit/s
   Serial.print ("distance: ") ;
@@ -2123,8 +1863,8 @@ The \texttt{ppmFromWishedBitRate} method returns the distance from the actual bi
 void setup () {
   Serial.begin (9600) ;
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 842 * 1000) ; // 842 kbit/s
-  Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
+  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 1 (--> is true)
   Serial.print ("actual bit rate: ") ;
   Serial.println (settings.actualBitRate ()) ; //  842105 bit/s
   Serial.print ("distance: ") ;
@@ -2149,8 +1889,8 @@ The \texttt{samplePointFromBitStart} method returns the distance of sample point
 void setup () {
   Serial.begin (9600) ;
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 500 * 1000) ; // 500 kbit/s
-  Serial.print ("mBitConfigurationClosedToWishedRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToWishedRate) ; // 1 (--> is true)
+  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 1 (--> is true)
   Serial.print ("Sample point: ") ;
   Serial.println (settings.samplePointFromBitStart ()) ; // 68 --> 68%
   ...
@@ -2181,7 +1921,7 @@ All properties of the \texttt{ACAN2515Settings} class are declared \texttt{publi
     \texttt{mPhaseSegment2} & \texttt{uint8\_t} & \texttt{5} & See \refSubsectionPage{CANbitSettings} \\ %(valid values: $2$ ... $8$)\\
     \texttt{mRJW} & \texttt{uint8\_t} & \texttt{4} & See \refSubsectionPage{CANbitSettings} \\ %(valid values: $1$ ... $4$)\\
     \texttt{mTripleSampling} & \texttt{bool} & \texttt{false} & See \refSubsectionPage{CANbitSettings} \\
-    \texttt{mBitConfigurationClosedToWishedRate} & \texttt{bool} & \texttt{true} & See \refSubsectionPage{CANbitSettings} \\
+    \texttt{mBitConfigurationClosedToDesiredRate} & \texttt{bool} & \texttt{true} & See \refSubsectionPage{CANbitSettings} \\
     \texttt{mListenOnlyMode} & \texttt{bool} & \texttt{false} & See \refSubsubsectionPage{mListenOnlyMode} \\
     \texttt{mSelfReceptionMode} & \texttt{bool} & \texttt{false} & See \refSubsubsectionPage{mSelfReceptionMode} \\
     \texttt{mLoopBackMode} & \texttt{bool} & \texttt{false} & See \refSubsubsectionPage{mLoopBackMode} \\

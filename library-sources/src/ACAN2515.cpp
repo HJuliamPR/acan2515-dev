@@ -69,9 +69,62 @@ mTXBIsFree () {
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings,
+                          void (* inInterruptServiceRoutine) (void)) {
+
+  return beginWithoutFilterCheck (inSettings, inInterruptServiceRoutine, ACAN2515Mask (), ACAN2515Mask (), NULL, 0) ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings,
                           void (* inInterruptServiceRoutine) (void),
+                          const ACAN2515Mask inRXM0,
                           const ACAN2515AcceptanceFilter inAcceptanceFilters [],
                           const uint32_t inAcceptanceFilterCount) {
+  uint32_t errorCode = 0 ;
+  if (inAcceptanceFilterCount == 0) {
+    errorCode = kOneFilterMaskRequiresOneOrTwoAcceptanceFilters ;
+  }else if (inAcceptanceFilterCount > 2) {
+    errorCode = kOneFilterMaskRequiresOneOrTwoAcceptanceFilters ;
+  }else if (inAcceptanceFilters == NULL) {
+    errorCode = kAcceptanceFilterArrayIsNULL ;
+  }else{
+    errorCode = beginWithoutFilterCheck (inSettings, inInterruptServiceRoutine,
+                                         inRXM0, inRXM0, inAcceptanceFilters, inAcceptanceFilterCount) ;
+  }
+  return errorCode ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings,
+                          void (* inInterruptServiceRoutine) (void),
+                          const ACAN2515Mask inRXM0,
+                          const ACAN2515Mask inRXM1,
+                          const ACAN2515AcceptanceFilter inAcceptanceFilters [],
+                          const uint32_t inAcceptanceFilterCount) {
+  uint32_t errorCode = 0 ;
+  if (inAcceptanceFilterCount < 3) {
+    errorCode = kTwoFilterMasksRequireThreeToSixAcceptanceFilters ;
+  }else if (inAcceptanceFilterCount > 6) {
+    errorCode = kTwoFilterMasksRequireThreeToSixAcceptanceFilters ;
+  }else if (inAcceptanceFilters == NULL) {
+    errorCode = kAcceptanceFilterArrayIsNULL ;
+  }else{
+    errorCode = beginWithoutFilterCheck (inSettings, inInterruptServiceRoutine,
+                                         inRXM0, inRXM1, inAcceptanceFilters, inAcceptanceFilterCount) ;
+  }
+  return errorCode ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+uint32_t ACAN2515::beginWithoutFilterCheck (const ACANSettings2515 & inSettings,
+                                            void (* inInterruptServiceRoutine) (void),
+                                            const ACAN2515Mask inRXM0,
+                                            const ACAN2515Mask inRXM1,
+                                            const ACAN2515AcceptanceFilter inAcceptanceFilters [],
+                                            const uint32_t inAcceptanceFilterCount) {
   uint32_t errorCode = 0 ; // Means no error
 //----------------------------------- check mINT has interrupt capability
   const int8_t itPin = digitalPinToInterrupt (mINT) ;
@@ -81,13 +134,6 @@ uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings,
 //----------------------------------- Check isr is not NULL
   if (inInterruptServiceRoutine == NULL) {
     errorCode |= kISRIsNull ;
-  }
-//----------------------------------- Check acceptance filters
-  if (inAcceptanceFilterCount > 6) {
-    errorCode |= kAcceptanceFilterCountGreaterThan6 ;
-  }
-  if ((inAcceptanceFilterCount > 0) && (inAcceptanceFilters == NULL)) {
-    errorCode |= kAcceptanceFilterArrayIsNULL ;
   }
 //----------------------------------- if no error, configure port and MCP2515
   if (errorCode == 0) {
@@ -108,7 +154,7 @@ uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings,
     attachInterrupt (itPin, inInterruptServiceRoutine, LOW) ;
     mSPI.usingInterrupt (itPin) ;
   //--- Internal begin
-    errorCode = internalBeginOperation (inSettings, inAcceptanceFilters, inAcceptanceFilterCount) ;
+    errorCode = internalBeginOperation (inSettings, inRXM0, inRXM1, inAcceptanceFilters, inAcceptanceFilterCount) ;
   }
 //----------------------------------- Return
   return errorCode ;
@@ -181,6 +227,8 @@ bool ACAN2515::dispatchReceivedMessage (const tFilterMatchCallBack inFilterMatch
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings,
+                                           const ACAN2515Mask inRXM0,
+                                           const ACAN2515Mask inRXM1,
                                            const ACAN2515AcceptanceFilter inAcceptanceFilters [],
                                            const uint32_t inAcceptanceFilterCount) {
   uint32_t errorCode = 0 ; // Ok be default
@@ -197,8 +245,11 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings,
     }
   mSPI.endTransaction () ;
 //----------------------------------- If ok, check if settings are correct
-  if (!inSettings.mBitSettingOk) {
-    errorCode |= kInvalidSettings ;
+  if (!inSettings.mBitConfigurationClosedToDesiredRate) {
+    errorCode |= kTooFarFromDesiredBitRate ;
+  }
+  if (!inSettings.CANBitSettingConsistency ()) {
+    errorCode |= kInconsistentBitRateSettings ;
   }
 //----------------------------------- If ok, perform configuration
   if (errorCode == 0) {
@@ -265,8 +316,8 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings,
     write2515Register (RXB0CTRL_REGISTER, ((uint8_t) inSettings.mRolloverEnable) << 2) ;
     write2515Register (RXB1CTRL_REGISTER, 0x00) ;
   //----------------------------------- Setup mask registers
-    setupMaskRegister (inSettings.mRXM0, RXM0SIDH_REGISTER) ;
-    setupMaskRegister (inSettings.mRXM1, RXM1SIDH_REGISTER) ;
+    setupMaskRegister (inRXM0, RXM0SIDH_REGISTER) ;
+    setupMaskRegister (inRXM1, RXM1SIDH_REGISTER) ;
     if (inAcceptanceFilterCount > 0) {
       uint32_t idx = 0 ;
       while (idx < inAcceptanceFilterCount) {
@@ -275,8 +326,8 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings,
         idx += 1 ;
       }
       while (idx < 6) {
-        setupMaskRegister (inAcceptanceFilters [0].mMask, RXFSIDH_REGISTER [idx]) ;
-        mCallBackFunctionArray [idx] = inAcceptanceFilters [0].mCallBack ;
+        setupMaskRegister (inAcceptanceFilters [inAcceptanceFilterCount-1].mMask, RXFSIDH_REGISTER [idx]) ;
+        mCallBackFunctionArray [idx] = inAcceptanceFilters [inAcceptanceFilterCount-1].mCallBack ;
         idx += 1 ;
       }
     }
@@ -565,6 +616,70 @@ void ACAN2515::setupMaskRegister (const ACAN2515Mask inMask, const uint8_t inReg
     mSPI.transfer (inMask.mEID8) ;
     mSPI.transfer (inMask.mEID0) ;
   unselect () ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+ACAN2515Mask standard2515Mask (const uint16_t inIdentifier,
+                               const uint8_t inByte0,
+                               const uint8_t inByte1) {
+  ACAN2515Mask result ;
+  result.mSIDH = (uint8_t) (inIdentifier >> 3) ;
+  result.mSIDL = (uint8_t) (inIdentifier << 5) ;
+  result.mEID8 = inByte0 ;
+  result.mEID0 = inByte1 ;
+  return result ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+ACAN2515Mask extended2515Mask (const uint32_t inIdentifier) {
+  ACAN2515Mask result ;
+  result.mSIDH = (uint8_t) (inIdentifier >> 21) ;
+  result.mSIDL = (uint8_t) (((inIdentifier >> 16) & 0x03) | ((inIdentifier >> 13) & 0xE0)) ;
+  result.mEID8 = (uint8_t) (inIdentifier >> 8) ;
+  result.mEID0 = (uint8_t) inIdentifier ;
+//   Serial.print ("Mask ") ;
+//   Serial.print (result.mSIDH, HEX) ;
+//   Serial.print (" ") ;
+//   Serial.print (result.mSIDL, HEX) ;
+//   Serial.print (" ") ;
+//   Serial.print (result.mEID8, HEX) ;
+//   Serial.print (" ") ;
+//   Serial.println (result.mEID0, HEX) ;
+  return result ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+ACAN2515Mask standard2515Filter (const uint16_t inIdentifier,
+                                 const uint8_t inByte0,
+                                 const uint8_t inByte1) {
+  ACAN2515Mask result ;
+  result.mSIDH = (uint8_t) (inIdentifier >> 3) ;
+  result.mSIDL = (uint8_t) (inIdentifier << 5) ;
+  result.mEID8 = inByte0 ;
+  result.mEID0 = inByte1 ;
+  return result ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+ACAN2515Mask extended2515Filter (const uint32_t inIdentifier) {
+  ACAN2515Mask result ;
+  result.mSIDH = (uint8_t) (inIdentifier >> 21) ;
+  result.mSIDL = (uint8_t) (((inIdentifier >> 16) & 0x03) | ((inIdentifier >> 13) & 0xE0)) | 0x08 ;
+  result.mEID8 = (uint8_t) (inIdentifier >> 8) ;
+  result.mEID0 = (uint8_t) inIdentifier ;
+//   Serial.print ("Acceptance ") ;
+//   Serial.print (result.mSIDH, HEX) ;
+//   Serial.print (" ") ;
+//   Serial.print (result.mSIDL, HEX) ;
+//   Serial.print (" ") ;
+//   Serial.print (result.mEID8, HEX) ;
+//   Serial.print (" ") ;
+//   Serial.println (result.mEID0, HEX) ;
+  return result ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————

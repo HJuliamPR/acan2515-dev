@@ -11,7 +11,6 @@
 
 #include <ACANBuffer.h>
 #include <ACAN2515Settings.h>
-#include <ACANCallBackRoutine.h>
 #include <SPI.h>
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
@@ -56,8 +55,9 @@ ACAN2515Mask extended2515Filter (const uint32_t inIdentifier) ;
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 class ACAN2515AcceptanceFilter {
-  public : const ACAN2515Mask mMask ;
-  public : const ACANCallBackRoutine mCallBack ;
+  public: typedef void (*tCallBackRoutine) (const CANMessage & inMessage) ;
+  public: const ACAN2515Mask mMask ;
+  public: const tCallBackRoutine mCallBack ;
 } ;
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
@@ -121,7 +121,7 @@ class ACAN2515 {
   private: ACANBuffer mReceiveBuffer ;
 
 //--- Call back function array
-  private: ACANCallBackRoutine mCallBackFunctionArray [6] ;
+  private: ACAN2515AcceptanceFilter::tCallBackRoutine mCallBackFunctionArray [6] ;
 
 //--- Driver transmit buffer
   private: ACANBuffer mTransmitBuffer [3] ;

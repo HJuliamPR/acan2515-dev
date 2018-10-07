@@ -52,7 +52,7 @@ ACAN2515::ACAN2515 (const uint8_t inCS,  // CS input of MCP2515
                     SPIClass & inSPI, // Hardware SPI object
                     const uint8_t inINT) : // INT output of MCP2515
 mSPI (inSPI),
-mSPISettings (10 * 1000 * 1000, MSBFIRST, SPI_MODE0),  // 10 MHz
+mSPISettings (10UL * 1000UL * 1000UL, MSBFIRST, SPI_MODE0),  // 10 MHz, UL suffix is required for Arduino Uno
 mCS (inCS),
 mINT (inINT),
 mReceiveBuffer (),
@@ -214,7 +214,7 @@ bool ACAN2515::dispatchReceivedMessage (const tFilterMatchCallBack inFilterMatch
     if (NULL != inFilterMatchCallBack) {
       inFilterMatchCallBack (filterIndex) ;
     }
-    ACANCallBackRoutine callBackFunction = mCallBackFunctionArray [filterIndex] ;
+    ACAN2515AcceptanceFilter::tCallBackRoutine callBackFunction = mCallBackFunctionArray [filterIndex] ;
     if (NULL != callBackFunction) {
       callBackFunction (receivedMessage) ;
     }
@@ -248,7 +248,7 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings,
   if (!inSettings.mBitConfigurationClosedToDesiredRate) {
     errorCode |= kTooFarFromDesiredBitRate ;
   }
-  if (!inSettings.CANBitSettingConsistency ()) {
+  if (inSettings.CANBitSettingConsistency () != 0) {
     errorCode |= kInconsistentBitRateSettings ;
   }
 //----------------------------------- If ok, perform configuration

@@ -104,28 +104,7 @@ void setup () {
     {standard2515Filter (0x560, 0x55, 0), receive2}
   } ;
   const uint32_t errorCode = can.begin (settings, canISR, rxm0, rxm1, filters, 3) ;
-  if (errorCode == 0) {
-    Serial.print ("Bit Rate prescaler: ") ;
-    Serial.println (settings.mBitRatePrescaler) ;
-    Serial.print ("Propagation Segment: ") ;
-    Serial.println (settings.mPropagationSegment) ;
-    Serial.print ("Phase segment 1: ") ;
-    Serial.println (settings.mPhaseSegment1) ;
-    Serial.print ("Phase segment 2: ") ;
-    Serial.println (settings.mPhaseSegment2) ;
-    Serial.print ("SJW:") ;
-    Serial.println (settings.mSJW) ;
-    Serial.print ("Triple Sampling: ") ;
-    Serial.println (settings.mTripleSampling ? "yes" : "no") ;
-    Serial.print ("Actual bit rate: ") ;
-    Serial.print (settings.actualBitRate ()) ;
-    Serial.println (" bit/s") ;
-    Serial.print ("Exact bit rate ? ") ;
-    Serial.println (settings.exactBitRate () ? "yes" : "no") ;
-    Serial.print ("Sample point: ") ;
-    Serial.print (settings.samplePointFromBitStart ()) ;
-    Serial.println ("%") ;
-  }else{
+  if (errorCode != 0) {
     Serial.print ("Configuration error 0x") ;
     Serial.println (errorCode, HEX) ;
   }

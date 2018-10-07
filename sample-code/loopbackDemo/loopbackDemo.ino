@@ -114,7 +114,7 @@ static unsigned gSentFrameCount = 0 ;
 
 //——————————————————————————————————————————————————————————————————————————————
 
-void loop() {
+void loop () {
   CANMessage frame ;
   if (gBlinkLedDate < millis ()) {
     gBlinkLedDate += 2000 ;

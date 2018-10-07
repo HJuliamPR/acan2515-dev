@@ -28,20 +28,20 @@ static const uint32_t lastTestedBitRate = 20 * 1000 * 1000 ; // 20 Mbit/s
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
-//static void compute (const uint32_t inDesiredBaudRate) {
-//  ACANSettings2515 settings (QUARTZ_FREQUENCY, inDesiredBaudRate) ;
-//  cout << "Desired baud rate: " << settings.mDesiredBitRate << " bit/s"  << endl ;
-//  cout << "  Divisor : " << (unsigned) settings.mBitRatePrescaler << endl ;
-//  cout << "  Prop seg: " << (unsigned) settings.mPropagationSegment << endl ;
-//  cout << "  Segment1: " << (unsigned) settings.mPhaseSegment1 << endl ;
-//  cout << "  Segment2: " << (unsigned) settings.mPhaseSegment2 << endl ;
-//  cout << "  SJW     : " << (unsigned) settings.mSJW << endl ;
-//  cout << "  Sampling: " << (settings.mTripleSampling ? "triple" : "single") << endl ;
-//  cout << "  Actual baud rate: " << settings.actualBitRate () << " bit/s" << endl ;
-//  cout << "  ppm: " << settings.ppmFromDesiredBitRate () << endl ;
-//  cout << "  Sample Point: " << settings.samplePointFromBitStart () << "%" << endl ;
-//  cout << "  Bit setting closed to desired bit rate ok: " << ((settings.ppmFromDesiredBitRate () < 1000) ? "yes" : "no") << endl ;
-//}
+static void compute (const uint32_t inDesiredBaudRate) {
+  ACANSettings2515 settings (QUARTZ_FREQUENCY, inDesiredBaudRate) ;
+  cout << "Desired baud rate: " << settings.mDesiredBitRate << " bit/s"  << endl ;
+  cout << "  Divisor : " << (unsigned) settings.mBitRatePrescaler << endl ;
+  cout << "  Prop seg: " << (unsigned) settings.mPropagationSegment << endl ;
+  cout << "  Segment1: " << (unsigned) settings.mPhaseSegment1 << endl ;
+  cout << "  Segment2: " << (unsigned) settings.mPhaseSegment2 << endl ;
+  cout << "  SJW     : " << (unsigned) settings.mSJW << endl ;
+  cout << "  Sampling: " << (settings.mTripleSampling ? "triple" : "single") << endl ;
+  cout << "  Actual baud rate: " << settings.actualBitRate () << " bit/s" << endl ;
+  cout << "  ppm: " << settings.ppmFromDesiredBitRate () << endl ;
+  cout << "  Sample Point: " << settings.samplePointFromBitStart () << "%" << endl ;
+  cout << "  Bit setting closed to desired bit rate ok: " << ((settings.ppmFromDesiredBitRate () < 1000) ? "yes" : "no") << endl ;
+}
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
@@ -169,8 +169,7 @@ int main (int /* argc */, const char * /* argv */ []) {
 //  compute (842 * 1000) ;
 //  compute (440 * 1000) ;
 //  compute (821 * 1000) ;
-//  compute (842 * 1000) ;
-//  compute (727 * 1000) ;
+  compute (727 * 1000) ;
 //  compute (2000) ;
 //  compute (20 * 1000 * 1000) ;
 //  compute (2509) ;

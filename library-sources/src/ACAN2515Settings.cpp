@@ -65,7 +65,7 @@ mQuartzFrequency (inQuartzFrequency) {
   //--- Final check of the configuration
     const uint32_t W = bestTQCount * mDesiredBitRate * mBitRatePrescaler * 2 ;
     const uint64_t diff = (mQuartzFrequency > W) ? (mQuartzFrequency - W) : (W - mQuartzFrequency) ;
-    const uint64_t ppm = (uint64_t) (1000 * 1000) ;
+    const uint64_t ppm = (uint64_t) (1000UL * 1000UL) ; // UL suffix is required for Arduino Uno
     mBitConfigurationClosedToDesiredRate = (diff * ppm) <= (((uint64_t) W) * inTolerancePPM) ;
   }
 } ;
@@ -90,7 +90,7 @@ uint32_t ACANSettings2515::ppmFromDesiredBitRate (void) const {
   const uint32_t TQCount = 1 /* Sync Seg */ + mPropagationSegment + mPhaseSegment1 + mPhaseSegment2 ;
   const uint32_t W = TQCount * mDesiredBitRate * mBitRatePrescaler * 2 ;
   const uint64_t diff = (mQuartzFrequency > W) ? (mQuartzFrequency - W) : (W - mQuartzFrequency) ;
-  const uint64_t ppm = (uint64_t) (1000 * 1000) ;
+  const uint64_t ppm = (uint64_t) (1000UL * 1000UL) ; // UL suffix is required for Arduino Uno
   return (uint32_t) ((diff * ppm) / W) ;
 }
 

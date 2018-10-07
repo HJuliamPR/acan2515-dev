@@ -29,5 +29,5 @@ do
   iteration=$((iteration+=1))
 done &&
 rm -f acan2515.aux acan2515.idx acan2515.lof acan2515.lot acan2515.toc &&
-rm -f acan2515.log acan2515.ilg acan2515.ind acan2515.out galgas-book.synctex.gz &&
+rm -f acan2515.log acan2515.ilg acan2515.ind acan2515.out acan2515.synctex.gz &&
 echo "---------------- SUCCES $iteration iterations"

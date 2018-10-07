@@ -30,6 +30,8 @@ static const uint8_t BFPCTRL_REGISTER   = 0x0C ;
 static const uint8_t TXRTSCTRL_REGISTER = 0x0D ;
 static const uint8_t CANSTAT_REGISTER   = 0x0E ;
 static const uint8_t CANCTRL_REGISTER   = 0x0F ;
+static const uint8_t TEC_REGISTER       = 0x1C ;
+static const uint8_t REC_REGISTER       = 0x1D ;
 static const uint8_t RXM0SIDH_REGISTER  = 0x20 ;
 static const uint8_t RXM1SIDH_REGISTER  = 0x24 ;
 static const uint8_t CNF3_REGISTER      = 0x28 ;
@@ -245,7 +247,7 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings,
     }
   mSPI.endTransaction () ;
 //----------------------------------- If ok, check if settings are correct
-  if (!inSettings.mBitConfigurationClosedToDesiredRate) {
+  if (!inSettings.mBitRateClosedToDesiredRate) {
     errorCode |= kTooFarFromDesiredBitRate ;
   }
   if (inSettings.CANBitSettingConsistency () != 0) {
@@ -273,7 +275,7 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings,
   //  Bit 5-3: -
   //  Bit 2-0: PHSEG2 - 1
     const uint8_t cnf3 =
-      ((inSettings.mSignalOnCLKOUT_SOF_pin == ACAN2515SignalOnCLKOUT_SOF_pin::SOF) << 6) /* SOF */ |
+      ((inSettings.mCLKOUT_SOF_pin == ACAN2515CLKOUT_SOF::SOF) << 6) /* SOF */ |
       ((inSettings.mPhaseSegment2 - 1) << 0) /* PHSEG2 */
     ;
    mSPI.transfer (cnf3) ;
@@ -337,23 +339,23 @@ uint32_t ACAN2515::internalBeginOperation (const ACANSettings2515 & inSettings,
     write2515Register (TXB2CTRL_REGISTER, (inSettings.mTXBPriority >> 4) & 3) ;
   //----------------------------------- Reset device to requested mode
     uint8_t canctrl = inSettings.mOneShotModeEnabled ? (1 << 3) : 0 ;
-    switch (inSettings.mSignalOnCLKOUT_SOF_pin) {
-    case ACAN2515SignalOnCLKOUT_SOF_pin::CLOCK :
+    switch (inSettings.mCLKOUT_SOF_pin) {
+    case ACAN2515CLKOUT_SOF::CLOCK :
       canctrl = 0x04 | 0x00 ;
       break ;
-    case ACAN2515SignalOnCLKOUT_SOF_pin::CLOCK2 :
+    case ACAN2515CLKOUT_SOF::CLOCK2 :
       canctrl |= 0x04 | 0x01 ;
       break ;
-    case ACAN2515SignalOnCLKOUT_SOF_pin::CLOCK4 :
+    case ACAN2515CLKOUT_SOF::CLOCK4 :
       canctrl |= 0x04 | 0x02 ;
       break ;
-    case ACAN2515SignalOnCLKOUT_SOF_pin::CLOCK8 :
+    case ACAN2515CLKOUT_SOF::CLOCK8 :
       canctrl |= 0x04 | 0x03 ;
       break ;
-    case ACAN2515SignalOnCLKOUT_SOF_pin::SOF :
+    case ACAN2515CLKOUT_SOF::SOF :
       canctrl |= 0x04 ;
       break ;
-    case ACAN2515SignalOnCLKOUT_SOF_pin::HiZ :
+    case ACAN2515CLKOUT_SOF::HiZ :
       break ;
     }
   //--- Requested mode
@@ -618,6 +620,28 @@ void ACAN2515::setupMaskRegister (const ACAN2515Mask inMask, const uint8_t inReg
   unselect () ;
 }
 
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+//   MCP2515 controller state
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+uint8_t ACAN2515::transmitErrorCounter (void) {
+  mSPI.beginTransaction (mSPISettings) ;
+    const uint8_t result = read2515Register (TEC_REGISTER) ;
+  mSPI.endTransaction () ;
+  return result ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+uint8_t ACAN2515::receiveErrorCounter (void) {
+  mSPI.beginTransaction (mSPISettings) ;
+    const uint8_t result = read2515Register (REC_REGISTER) ;
+  mSPI.endTransaction () ;
+  return result ;
+}
+
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+//   FILTER HELPER FUNCTIONS
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 ACAN2515Mask standard2515Mask (const uint16_t inIdentifier,

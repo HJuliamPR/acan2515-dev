@@ -5,7 +5,7 @@
 //
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
-#include "ACAN2515Settings.h"
+#include <ACAN2515Settings.h>
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 //    CAN Settings
@@ -47,7 +47,7 @@ mQuartzFrequency (inQuartzFrequency) {
       BRP = mQuartzFrequency / inWhishedBitRate / TQCount / 2 ;
     }
   //--- Set the BRP
-    mBitRatePrescaler = (uint16_t) bestBRP ;
+    mBitRatePrescaler = (uint8_t) bestBRP ;
   //--- Compute PS2
     const uint32_t PS2 = (bestTQCount + 1) / 3 ; // Always 2 <= PS2 <= 8
     mPhaseSegment2 = (uint8_t) PS2 ;
@@ -66,7 +66,7 @@ mQuartzFrequency (inQuartzFrequency) {
     const uint32_t W = bestTQCount * mDesiredBitRate * mBitRatePrescaler * 2 ;
     const uint64_t diff = (mQuartzFrequency > W) ? (mQuartzFrequency - W) : (W - mQuartzFrequency) ;
     const uint64_t ppm = (uint64_t) (1000UL * 1000UL) ; // UL suffix is required for Arduino Uno
-    mBitConfigurationClosedToDesiredRate = (diff * ppm) <= (((uint64_t) W) * inTolerancePPM) ;
+    mBitRateClosedToDesiredRate = (diff * ppm) <= (((uint64_t) W) * inTolerancePPM) ;
   }
 } ;
 

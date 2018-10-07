@@ -6,6 +6,7 @@
 test-ACANSettings-on-desktop/build/
 */*.xcodeproj/project.xcworkspace
 */*.xcodeproj/xcuserdata
+build-path
 
 ## Core latex/pdflatex auxiliary files:
 *.aux

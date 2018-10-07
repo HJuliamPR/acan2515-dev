@@ -25,11 +25,9 @@
 % http://www.tuteurs.ens.fr/logiciels/latex/xetex.html
 \RequirePackage{etex}
 \usepackage{fontspec}
-\setmainfont{Georgia}[Ligatures=TeX]
-\setsansfont{Courier}[Ligatures=NoCommon,Scale=0.95]
-\setmonofont{Courier}[Ligatures=NoCommon,Scale=0.95]
-%\usepackage{polyglossia}
-%\setdefaultlanguage{french}
+%\setmainfont{Georgia}[Ligatures=TeX]
+%\setsansfont{Courier}[Ligatures=NoCommon,Scale=0.95]
+%\setmonofont{Courier}[Ligatures=NoCommon,Scale=0.95]
 
 %-----------------------------------------------------------------------------------------------------------------------*
 %                                                                                                                       *
@@ -413,13 +411,13 @@ The \refFigure{}{figureStructureStationCAN} illustrates message flow for sending
   % RxD
     \draw[<-] (8.75, 1) -- ++ (0, -1) ;
     \draw (8.75, 0.5) node[fill=white, draw] {\texttt{RXCAN}};
-  %  FlexCAN transmit data Buffer 0
+  %  transmit data Buffer 0
     \draw[fill=white] (1, 4.5) rectangle ++ (3, 1.5);
     \draw (2.5, 5.25) node {\tt TXB0};
-  %  FlexCAN transmit data Buffer 1
+  %  transmit data Buffer 1
     \draw[fill=white] (4.5, 4.5) rectangle ++ (3, 1.5);
     \draw (6, 5.25) node {\tt TXB1};
-  %  FlexCAN transmit data Buffer 2
+  %  transmit data Buffer 2
     \draw[fill=white] (8, 4.5) rectangle ++ (3, 1.5);
     \draw (9.5, 5.25) node {\tt TXB2};
   %  Rx Filtres de réception
@@ -429,27 +427,9 @@ The \refFigure{}{figureStructureStationCAN} illustrates message flow for sending
     \draw[fill=white] (11.5, 4.5) rectangle ++ (3, 1.5);
     \draw (13, 5.25) node {\emph{Reception Registers}};
   \end{tikzpicture}
-  \caption{Message flow in \texttt{ACAN2515} driver and MCP2515 CAN controller}
+  \caption{Message flow in \texttt{ACAN2515} driver and \texttt{MCP2515} CAN Controller}
   \labelFigure{figureStructureStationCAN}
 \end{figure}
-
-
-
-%\begin{table}[!ht]
-%  \small
-%  \onehalfspacing
-%  \centering
-%  \begin{tabular}{lllll}
-%     & & \textbf{Sending} & \textbf{Sending} \\
-%    \textbf{settings.mConfiguration}& \textbf{Reception} & \textbf{remote frames} & \textbf{data frames} \\
-%    \texttt{k8\_0\_Filters} & 8 (\texttt{MB0} ... \texttt{MB7}) & 7 (\texttt{MB8} ... \texttt{MB14}) & 1 (\texttt{MB15})\\
-%    \texttt{k10\_6\_Filters} & 10  (\texttt{MB0} ... \texttt{MB9}) & 5  (\texttt{MB10} ... \texttt{MB14})& 1 (\texttt{MB15})\\
-%    \texttt{k12\_12\_Filters} & 12  (\texttt{MB0} ... \texttt{MB11}) & 3  (\texttt{MB12} ... \texttt{MB14}) & 1 (\texttt{MB15})\\
-%    \texttt{k14\_18\_Filters} & 14  (\texttt{MB0} ... \texttt{MB13}) & 1 (\texttt{MB14}) & 1 (\texttt{MB15})\\
-%  \end{tabular}
-%  \caption{FlexCAN MBs assignments, following \texttt{settings.mConfiguration} value}
-%  \labelTableau{MBassignement}
-%\end{table}
 
 
 
@@ -458,10 +438,10 @@ The \refFigure{}{figureStructureStationCAN} illustrates message flow for sending
 
 
 
-{\bf Receiving messages.} The MCP2515 \emph{CAN Protocol Engine} transmits all correct frames to the \emph{reception filters}. By default, they are configured as pass-all, see \refSectionPage{primaryFilters} and  \refSectionPage{secondaryFilters} for configuring them. Messages that pass the filters are stored in the \emph{Reception Registers} (\texttt{RXB0} and \texttt{RXB1}). The interrupt service routine transfers the messages from these registers to the \emph{Driver Receive Buffer}. The size of the \emph{Driver Receive Buffer} is 32 by default -- see \refSubsectionPage{driverReceiveBufferSize} for changing the default value. Three user methods are available:
+{\bf Receiving messages.} The MCP2515 \emph{CAN Protocol Engine} transmits all correct frames to the \emph{reception filters}. By default, they are configured as pass-all, see \refSectionPage{acceptanceFilters} for configuring them. Messages that pass the filters are stored in the \emph{Reception Registers} (\texttt{RXB0} and \texttt{RXB1}). The interrupt service routine transfers the messages from these registers to the \emph{Driver Receive Buffer}. The size of the \emph{Driver Receive Buffer} is 32 by default -- see \refSubsectionPage{driverReceiveBufferSize} for changing the default value. Three user methods are available:
 \begin{itemize}
   \item the \texttt{available} method returns \texttt{false} if the \emph{Driver Receive Buffer} is empty, and \texttt{true} otherwise;
-  \item the \texttt{receive} method retrieves messages from the \emph{Driver Receive Buffer} -- see \refSectionPage{UsingReceiveMethod}, \refSubsectionPage{usingIDXvalue} and \refSubsectionPage{usingIDXvalueWithSecondaryFilter};
+  \item the \texttt{receive} method retrieves messages from the \emph{Driver Receive Buffer} -- see \refSectionPage{UsingReceiveMethod};
   \item the \texttt{dispatchReceivedMessage} method if you have defined the reception filters that name a call-back function -- see \refSectionPage{UsingDispatchMethod}.
 \end{itemize}
 
@@ -552,11 +532,10 @@ Builtin led is used for signaling. It blinks led at 10 Hz during until serial mo
 In this sketch, we use \texttt{SPI} alternate pins. These functions are dedicated to Teensy 3.x\footnote{See \url{https://www.pjrc.com/teensy/td_libs_SPI.html}}. Other platforms have similar functions.
 
 { \small\begin{lstlisting}[language=c++]
-  Serial.println ("Configure ACAN2515") ;
   ACANSettings2515 settings (QUARTZ_FREQUENCY, 125 * 1000) ;
 \end{lstlisting}}
 
-Configuration is a four-step operation. This line is the first step. It instanciates the \texttt{settings} object of the \texttt{ACAN2515Settings} class. The constructor has two parameters: the \texttt{MCP2515} quartz frequency, and the wished CAN bit rate (here, 125 kb/s). It returns a \texttt{settings} object fully initialized with CAN bit settings for the wished bit rate, and default values for other configuration properties.
+Configuration is a four-step operation. This line is the first step. It instanciates the \texttt{settings} object of the \texttt{ACAN2515Settings} class. The constructor has two parameters: the \texttt{MCP2515} quartz frequency, and the desired CAN bit rate (here, 125 kb/s). It returns a \texttt{settings} object fully initialized with CAN bit settings for the desired bit rate, and default values for other configuration properties.
 
 
 
@@ -566,7 +545,7 @@ Configuration is a four-step operation. This line is the first step. It instanci
 { \small\begin{lstlisting}[language=c++]
   settings.mRequestedMode = ACAN2515RequestedMode::LoopBackMode ;
 \end{lstlisting}}
-This is the second step. You can override the values of the properties of \texttt{settings} object. Here, the \texttt{mRequestedMode} property is set to \texttt{true} -- it is \texttt{false} by default. Setting this property enables \emph{loop back}, that is you can run this demo sketch even it you have no connection to a physical CAN network. The \refSubsectionPage{propertiesACAN2515Settings} lists all properties you can override.
+This is the second step. You can override the values of the properties of \texttt{settings} object. Here, the \texttt{mRequestedMode} property is set to \texttt{LoopBackMode} -- its value is \texttt{NormalMode} by default. Setting this property enables \emph{loop back}, that is you can run this demo sketch even it you have no connection to a physical CAN network. The \refSubsectionPage{propertiesACAN2515Settings} lists all properties you can override.
 
 
 
@@ -575,7 +554,7 @@ This is the second step. You can override the values of the properties of \textt
 { \small\begin{lstlisting}[language=c++]
   const uint32_t errorCode = can.begin (settings, canISR) ;
 \end{lstlisting}}
-This is the third step, configuration of the \texttt{can} driver with \texttt{settings} values. The driver is configured for being able to send any (standard / extended, data / remote) frame, and to receive all (standard / extended, data / remote) frames. If you want to define reception filters, see \refSectionPage{primaryFilters}.
+This is the third step, configuration of the \texttt{can} driver with \texttt{settings} values. The driver is configured for being able to send any (standard / extended, data / remote) frame, and to receive all (standard / extended, data / remote) frames. If you want to define reception filters, see \refSectionPage{acceptanceFilters}.
 
 
 
@@ -652,7 +631,7 @@ As the \texttt{MCP2515} controller is configured in \emph{loop back} mode, all s
 
 \sectionLabel{The \texttt{CANMessage} class}{CANMessageClass}
 
-{\bf Note. } The \texttt{CANMessage} class is declared in the \texttt{CANMessage.h} header file. The class declaration is protected by an include guard that causes the macro \texttt{GENERIC\_CAN\_MESSAGE\_DEFINED} to be defined. The ACAN\footnote{The ACAN driver is a CAN driver for FlexCAN modules integrated in the Teensy 3.x microcontrollers.} driver contains an identical \texttt{CANMessage.h} file header, enabling using both ACAN driver and ACAN2515 driver in a sketch.
+{\bf Note. } The \texttt{CANMessage} class is declared in the \texttt{CANMessage.h} header file. The class declaration is protected by an include guard that causes the macro \texttt{GENERIC\_CAN\_MESSAGE\_DEFINED} to be defined. The ACAN\footnote{The ACAN driver is a CAN driver for FlexCAN modules integrated in the Teensy 3.x microcontrollers.} (version 1.0.3 and above) driver contains an identical \texttt{CANMessage.h} file header, enabling using both ACAN driver and ACAN2515 driver in a sketch.
 
 A \emph{CAN message} is an object that contains all CAN frame user informations. All properties are initialized by default, and represent a standard data frame, with an identifier equal to $0$, and without any data.
 
@@ -664,9 +643,7 @@ class CANMessage {
   public : uint8_t idx = 0 ;  // Used by the driver
   public : uint8_t len = 0 ;  // Length of data (0 ... 8)
   public : union {
-    #ifdef __UINT64_TYPE__
-      uint64_t data64   ; // Caution: subject to endianness
-    #endif
+    uint64_t data64     ; // Caution: subject to endianness
     uint32_t data32 [2] ; // Caution: subject to endianness
     uint16_t data16 [4] ; // Caution: subject to endianness
     uint8_t  data   [8] = {0, 0, 0, 0, 0, 0, 0, 0} ;
@@ -678,7 +655,7 @@ Note the message datas are defined by an {\bf\texttt{union}}. So message datas c
 
 The \texttt{idx} property is not used in CAN frames, but:
 \begin{itemize}
-  \item for a received message, it contains the acceptance filter index (see \refSubsectionPage{usingIDXvalue} and \refSubsectionPage{usingIDXvalueWithSecondaryFilter});
+  \item for a received message, it contains the acceptance filter index (see \refSectionPage{UsingDispatchMethod});
   \item on sending messages, it is used for selecting the transmit buffer (see \refSubsectionPage{tryToSendMethod}).
 \end{itemize}
 
@@ -693,9 +670,9 @@ The \texttt{idx} property is not used in CAN frames, but:
 \section{Connecting a \texttt{MCP2515} to your microcontroller}
 
 
-Connecting a \texttt{MCP2515} requires 5 pins :
+Connecting a \texttt{MCP2515} requires 5 pins (\refFigure{}{figureHardwareSPI}):
 \begin{itemize}
-  \item hardware SPI requires you use dedicaced pins of your microcontroller (\refFigure{}{figureHardwareSPI}). You can use alternate pins (see below), and if your microcontroller supports several hardware SPIs, you can select any of them;
+  \item hardware SPI requires you use dedicaced pins of your microcontroller. You can use alternate pins (see below), and if your microcontroller supports several hardware SPIs, you can select any of them;
   \item connecting the $\overline{\tt CS}$ signal requires one digital pin, that the driver configures as an \texttt{OUTPUT} ;
   \item connecting the $\overline{\tt INT}$ signal requires one other digital pin, that the driver configures as an external interrupt input; so this pin should have interrupt capability (checked by the \texttt{begin} method of the driver object).
 \end{itemize}
@@ -742,7 +719,7 @@ The \texttt{begin} function of \texttt{ACAN2515} library configures the selected
 
 On Teensy 3.x, "\emph{the main SPI pins are enabled by default. SPI pins can be moved to their alternate position with \texttt{SPI.setMOSI(pin)}, \texttt{SPI.setMISO(pin)}, and \texttt{SPI.setSCK(pin)}. You can move all of them, or just the ones that conflict, as you prefer.}"\footnote{See \url{https://www.pjrc.com/teensy/td_libs_SPI.html}}
 
-For example, on a Teensy 3.5, I use \texttt{SPI0} with these alternate pins\footnote{See \url{https://www.pjrc.com/teensy/pinout.html}}:
+For example, I can use \texttt{SPI0} on a Teensy 3.5 with these alternate pins\footnote{See \url{https://www.pjrc.com/teensy/pinout.html}}:
 \begin{figure}[!ht]
   \small
   \centering
@@ -837,7 +814,7 @@ The \texttt{ACAN2515} driver define three transmit buffers, each of them corresp
 {\small\begin{lstlisting}[language=c++]
   ...
   CANMessage message ;
-  ... setup message ...
+  // Setup message
   const bool ok = can.tryToSend (message) ;
   ...
 \end{lstlisting}}
@@ -972,18 +949,12 @@ There are two ways for retrieving received messages~:
 This is a basic example:
 
 { \small\begin{lstlisting}[language=c++]
-void setup () {
-  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
-  ...
-  const uint32_t errorCode = can.begin (settings) ; // No receive filter
-  ...
-}
-
 void loop () {
   CANMessage message ;
   if (can.receive (message)) {
     // Handle received message
   }
+  ...
 }
 \end{lstlisting}}
 
@@ -995,13 +966,6 @@ The \texttt{receive} method:
 
 You need to manually dispatch the received messages. If you did not provide any receive filter, you should check the \texttt{rtr} bit (remote or data frame?), the \texttt{ext} bit (standard or extended frame), and the \texttt{id} (identifier value). The following snippet dispatches three messages:
 { \small\begin{lstlisting}[language=c++]
-void setup () {
-  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
-  ...
-  const uint32_t errorCode = can.begin (settings) ; // No receive filter
-  ...
-}
-
 void loop () {
   CANMessage message ;
   if (can.receive (message)) {
@@ -1079,7 +1043,7 @@ Note the driver receive buffer can overflow, if messages are not retrieved (by c
 
 \sectionLabel{Acceptance filters}{acceptanceFilters}
 
-The filters of the \texttt{MCP2515} are quite primitive, and it is recommended to read the Microchip documentation \texttt{DS20001801H}, section 4.5 page 33. The \refFigurePage{}{figureFiltres2515} shows the \texttt{MCP2515} acceptance filter registers.
+It is recommended to read the Microchip documentation \texttt{DS20001801H}, section 4.5 page 33. The \refFigure{}{figureFiltres2515} shows the \texttt{MCP2515} acceptance filter registers.
 
 
 
@@ -1100,11 +1064,11 @@ The filters of the \texttt{MCP2515} are quite primitive, and it is recommended t
 
 \subsection{Default behaviour}
 
-\texttt{ACAN2515Settings} class has two properties \texttt{RXM0} and \texttt{RXM1}. They are set to $0$ by default. These properties are written to the corresponding \texttt{MCP2515} registers by the \texttt{ACAN2515::begin} method, so, by default, the \texttt{MCP2515} receives all CAN bus messages.
+The \texttt{can.begin (settings, canISR)} method sets the \texttt{RXM0} and \texttt{RXM1} registers to $0$, so, the \texttt{MCP2515} receives all CAN bus messages.
 
 More precisely, as \texttt{RXM0} is zero, all messages are received in \texttt{RXB0}. If a new message is received as \texttt{RXB0} is full, the new message is lost.
 
-You can set the \texttt{mRolloverEnable} property of your \texttt{ACAN2515Settings} object to \texttt{true} (it is \texttt{false} by défault). Doing that, if a new message is received as \texttt{RXB0} is full, the new message is transferred to \texttt{RXB1}. If \texttt{RXB1} is full the new message is lost.
+You can set the \texttt{mRolloverEnable} property of your \texttt{ACAN2515Settings} object to \texttt{true} (it is \texttt{false} by default). Doing that, if a new message is received as \texttt{RXB0} is full, the new message is transferred to \texttt{RXB1}. If \texttt{RXB1} is full the new message is lost.
 
 
 
@@ -1133,7 +1097,7 @@ Four functions are available for managing filters:
 
 {\bf Multiple filter matches.} From \texttt{DS20001801H}, section 4.5.4 page 34: \emph{If more than one acceptance filter matches, the FILHITn bits will encode the binary value of the lowest numbered filter that matched. For example, if filters, RXF2 and RXF4, match, the FILHITn bits will be loaded with the value for RXF2. This essentially prioritizes the acceptance filters with a lower numbered filter having higher priority. Messages are compared to filters in ascending order of filter number. This also ensures that the message will only be received into one buffer. This implies that RXB0 has a higher priority than RXB1.}
 
-The \texttt{MCP2515} filters cannot be disabled, so all mask registers can be taken into account during the acceptance of a message. For example, if \texttt{MCP2515} filters are defined with the \texttt{RXM0}, \texttt{RXF0}, \texttt{RXF1} registers, leaving \texttt{RXM1} equal to $0$ provides the transfer to \texttt{RXB1} of all messages discarded by \texttt{RXB0}.
+The \texttt{MCP2515} filters cannot be disabled, so all mask registers can be taken into account during the acceptance of a message. For example, if \texttt{MCP2515} filters are defined with the \texttt{RXM0}, \texttt{RXF0}, \texttt{RXF1} registers, leaving \texttt{RXM1} equal to $0$ provides the transfer to \texttt{RXB1} of all messages discarded by \texttt{RXF0} and \texttt{RXF1}.
 
 For dealing with all situations, the \texttt{ACAN2515::begin} method accepts three prototypes.
 
@@ -1160,7 +1124,7 @@ No filter is provided, \texttt{RXM0} and \texttt{RXM1} are set to $0$, enabling 
                                         1) ; // Filter array size
 \end{lstlisting}}
 
-Here, one type of message is accepted, extended (data or remote) frames with an identifier equal to \texttt{0x12345678}. This defines explicitly \texttt{RXM0} and \texttt{RXF0}; for disabling acceptance by \texttt{RXF1}, it is set with \texttt{RXF0} value; \texttt{RXM1} is set with \texttt{RXM0} value, and the \texttt{RXF2} to \texttt{RXF5} registers are set with the \texttt{RXF1} value. No message will be accepted by \texttt{RXB1} filters.
+Here, one type of message is accepted, extended (data or remote) frames with an identifier equal to \texttt{0x12345678}. This defines explicitly \texttt{RXM0} and \texttt{RXF0}; for disabling acceptance by \texttt{RXF1}, it is set with \texttt{RXF0} value; \texttt{RXM1} is set with \texttt{RXM0} value, and the \texttt{RXF2} to \texttt{RXF5} registers are set with the \texttt{RXF0} value. No message will be accepted by \texttt{RXB1} filters.
 
 The definition of a filter is associated with a call back function -- here \texttt{receive0}. This function is called indirectly when the \texttt{dispatchReceivedMessage} method is called -- see \refSectionPage{UsingDispatchMethod}.
 
@@ -1225,7 +1189,7 @@ Four types of message are accepted, extended (data or remote) frames with an ide
 
 
 
-{\bf Six filters.} For example, with four filters:
+{\bf Six filters.}
 { \small\begin{lstlisting}[language=c++]
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
   const ACAN2515Mask rxm0 = extended2515Mask (0x1FFFFFFF) ;
@@ -1261,7 +1225,7 @@ Six types of message are accepted, all filter registers are explicitly defined.
 
 The \texttt{extended2515Mask} and \texttt{extended2515Filter} functions helps you to define extended frame filters. Extended frame filters test extended identifier value.
 
-The acceptance criterion is\footnote{See 4.5 DS20001801H, \emph{Message Acceptance Filters and Masks}, page 33.}:
+The acceptance criterion is\footnote{See DS20001801H, section 4.5 \emph{Message Acceptance Filters and Masks}, page 33.}:
 
 \begin{center}
 \texttt{acceptance\_mask} \& (\texttt{received\_identifier} \texttt{nXOR} \texttt{acceptance\_filter}) == 0
@@ -1304,7 +1268,7 @@ If you define an acceptance filter by \texttt{extended2515Filter (0x12345608)}, 
 
 The \texttt{standard2515Mask} and \texttt{standard2515Filter} functions helps you to define extended frame filters. Standard frame filters test standard identifier value, first and second data byte.
 
-The acceptance criterion is\footnote{See 4.5 DS20001801H, \emph{Message Acceptance Filters and Masks}, page 33.}:
+The acceptance criterion is\footnote{See DS20001801H, section 4.5 \emph{Message Acceptance Filters and Masks}, page 33.}:
 
 \begin{center}\small
 \texttt{acceptance\_mask} \& (\texttt{(received\_identifier, data\_byte$_0$, data\_byte$_1$)} \texttt{nXOR} \texttt{acceptance\_filter}) == 0
@@ -1464,14 +1428,14 @@ The \texttt{ACAN2515::begin} method checks accessibility by writing and reading 
 
 \subsubsectionLabel{\texttt{kTooFarFromDesiredBitRate}}{kTooFarFromDesiredBitRate}
 
-This error occurs when the \texttt{mBitConfigurationClosedToDesiredRate} property of the \texttt{settings} object is \texttt{false}. This means that the \texttt{ACAN2515Settings} constructor cannot compute a CAN bit configuration close enough to the desired bit rate. For example:
+This error occurs when the \texttt{mBitRateClosedToDesiredRate} property of the \texttt{settings} object is \texttt{false}. This means that the \texttt{ACAN2515Settings} constructor cannot compute a CAN bit configuration close enough to the desired bit rate. For example:
 
 { \small\begin{lstlisting}[language=c++]
 void setup () {
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 1) ; // 1 bit/s !!!
-  // Here, settings.mBitConfigurationClosedToDesiredRate is false
+  // Here, settings.mBitRateClosedToDesiredRate is false
   const uint32_t errorCode = can.begin (settings) ;
-  // Here, errorCode contains ACAN2515::kCANBitConfigurationTooFarFromWishedBitRate
+  // Here, errorCode contains ACAN2515::kCANBitConfigurationTooFarFromDesiredBitRate
 }
 \end{lstlisting}}
 
@@ -1480,7 +1444,7 @@ void setup () {
 
 \subsubsectionLabel{\texttt{kInconsistentBitRateSettings}}{kInconsistentBitRateSettings}
 
-The \texttt{ACAN2515Settings} constructor allways returns consistent bit rate settings -- even if the settings provide a bit rate too far away the desired bit rate. So this error occurs only when you have changed the CAN bit properties (\texttt{mBitRatePrescaler}, \texttt{mPropagationSegment}, \texttt{mPhaseSegment1}, \texttt{mPhaseSegment2}, \texttt{mRJW}), and one or more resulting values are inconsistent. See \refSubsectionPage{CANBitSettingConsistency}.
+The \texttt{ACAN2515Settings} constructor allways returns consistent bit rate settings -- even if the settings provide a bit rate too far away the desired bit rate. So this error occurs only when you have changed the CAN bit properties (\texttt{mBitRatePrescaler}, \texttt{mPropagationSegment}, \texttt{mPhaseSegment1}, \texttt{mPhaseSegment2}, \texttt{mSJW}), and one or more resulting values are inconsistent. See \refSubsectionPage{CANBitSettingConsistency}.
 
 
 
@@ -1548,86 +1512,86 @@ The \texttt{ACAN2515::begin} method you have called names the \texttt{inRXM0} an
 
 \sectionLabel{\texttt{ACAN2515Settings} class reference}{ACAN2515SettingsRef}
 
-{\bf Note. } The \texttt{ACAN2515Settings} class is not Arduino specific. You can compile it on your desktop computer with your favorite C++ compiler. 
+{\bf Note. } The \texttt{ACAN2515Settings} class is not Arduino specific. You can compile it on your desktop computer with your favorite C++ compiler. In the \url{https://github.com/pierremolinaro/acan2515-dev} GitHub repository, a command line tool is defined for exploring all CAN bit rates from 1 bit/s and 20 Mbit/s for a 16 MHz quartz: 63804 bit rates are valid, and 29 are exact. It also check that computed CAN bit decompositions are all valid.
 
 
 
 \subsectionLabel{The \texttt{ACAN2515Settings} constructor: computation of the CAN bit settings}{CANbitSettings}
 
-The constructor of the \texttt{ACAN2515Settings} has one mandatory argument: the wished bit rate. It tries to compute the CAN bit settings for this bit rate. If it succeeds, the constructed object has its \texttt{mBitConfigurationClosedToDesiredRate} property set to \texttt{true}, otherwise it is set to \texttt{false}. For example:
+The constructor of the \texttt{ACAN2515Settings} has two mandatory arguments: the quartz frequency, and the desired bit rate. It tries to compute the CAN bit settings for this bit rate. If it succeeds, the constructed object has its \texttt{mBitRateClosedToDesiredRate} property set to \texttt{true}, otherwise it is set to \texttt{false}. For example:
 { \small\begin{lstlisting}[language=c++]
+const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 void setup () {
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 1 * 1000 * 1000) ; // 1 Mbit/s
-  // Here, settings.mBitConfigurationClosedToDesiredRate is true
+  // Here, settings.mBitRateClosedToDesiredRate is true
   ...
 }
 \end{lstlisting}}
 
-Of course, CAN bit computation always succeeds for classical bit rates: 1 Mbit/s, 500 kbit/s, 250 kbit/s, 125 kbit/s. But CAN bit computation can also succeed for some unusual bit rates, as 842 kbit/s. You can check the result by computing actual bit rate, and the distance from the wished bit rate:
+Of course, with a 16 MHz quartz, CAN bit computation always succeeds for classical bit rates: 1 Mbit/s, 500 kbit/s, 250 kbit/s, 125 kbit/s. But CAN bit computation can also succeed for some unusual bit rates, as 727 kbit/s. You can check the result by computing actual bit rate, and the distance from the desired bit rate:
 { \small\begin{lstlisting}[language=c++]
+const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 void setup () {
-  Serial.begin (9600) ;
-  ACAN2515Settings settings (QUARTZ_FREQUENCY, 842 * 1000) ; // 842 kbit/s
-  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 1 (--> is true)
+  ...
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 727 * 1000) ; // 727 kbit/s
+  Serial.print ("mBitRateClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitRateClosedToDesiredRate) ; // 1 (--> is true)
   Serial.print ("actual bit rate: ") ;
-  Serial.println (settings.actualBitRate ()) ; //  842105 bit/s
+  Serial.println (settings.actualBitRate ()) ; //  727272 bit/s
   Serial.print ("distance: ") ;
-  Serial.println (settings.ppmFromWishedBitRate ()) ; // 124 ppm
+  Serial.println (settings.ppmFromDesiredBitRate ()) ; // 375 ppm
   ...
 }
 \end{lstlisting}}
 
-The actual bit rate is 842,105 bit/s, and its distance from wished bit rate is 124 ppm. "ppm" stands for "part-per-million", and $1~\texttt{ppm} = 10^{-6}$. In other words, $10,000~\texttt{ppm}=1\%$.
+The actual bit rate is 727,272 bit/s, and its distance from desired bit rate is 375 ppm. "ppm" stands for "part-per-million", and $1~\texttt{ppm} = 10^{-6}$. In other words, $10,000~\texttt{ppm}=1\%$.
 
 
-By default, a wished bit rate is accepted if the distance from the computed actual bit rate is lower or equal to $1,000~\texttt{ppm} = 0.1~\%$. You can change this default value by adding your own value as second argument of \texttt{ACAN2515Settings} constructor:
+By default, a desired bit rate is accepted if the distance from the computed actual bit rate is lower or equal to $1,000~\texttt{ppm} = 0.1~\%$. You can change this default value by adding your own value as third argument of \texttt{ACAN2515Settings} constructor:
 { \small\begin{lstlisting}[language=c++]
+const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 void setup () {
-  Serial.begin (9600) ;
-  ACAN2515Settings settings (QUARTZ_FREQUENCY, 842 * 1000, 100) ; // 842 kbit/s, max distance is 100 ppm
-  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 0 (--> is false)
+  ...
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 727 * 1000, 100) ;
+  Serial.print ("mBitRateClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitRateClosedToDesiredRate) ; // 0 (--> is false)
   Serial.print ("actual bit rate: ") ;
-  Serial.println (settings.actualBitRate ()) ; //  842105 bit/s
+  Serial.println (settings.actualBitRate ()) ; //  727272 bit/s
   Serial.print ("distance: ") ;
-  Serial.println (settings.ppmFromWishedBitRate ()) ; // 124 ppm
+  Serial.println (settings.ppmFromDesiredBitRate ()) ; // 375 ppm
   ...
 }
 \end{lstlisting}}
 
-The second argument does not change the CAN bit computation, it only changes the acceptance test for setting the \texttt{mBitConfigurationClosedToDesiredRate} property. For example, you can specify that you want the computed actual bit to be exactly the wished bit rate:
+The third argument does not change the CAN bit computation, it only changes the acceptance test for setting the \texttt{mBitRateClosedToDesiredRate} property. For example, you can specify that you want the computed actual bit to be exactly the desired bit rate:
 { \small\begin{lstlisting}[language=c++]
+const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 void setup () {
-  Serial.begin (9600) ;
-  ACAN2515Settings settings (QUARTZ_FREQUENCY, 500 * 1000, 0) ; // 500 kbit/s, max distance is 0 ppm
-  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 1 (--> is true)
+  ...
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 500 * 1000, 0) ; // Max distance is 0 ppm
+  Serial.print ("mBitRateClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitRateClosedToDesiredRate) ; // 1 (--> is true)
   Serial.print ("actual bit rate: ") ;
   Serial.println (settings.actualBitRate ()) ; //  500,000 bit/s
   Serial.print ("distance: ") ;
-  Serial.println (settings.ppmFromWishedBitRate ()) ; // 0 ppm
+  Serial.println (settings.ppmFromDesiredBitRate ()) ; // 0 ppm
   ...
 }
 \end{lstlisting}}
 
-The fastest exact bit rate is 3,2 Mbit/s. It works when the \texttt{MCP2515} module is configured in both \emph{loop back} mode (\refSubsubsectionPage{mLoopBackMode}) and \emph{self reception} mode (\refSubsubsectionPage{mSelfReceptionMode}). Note bit rates above 1 Mbit/s do not conform to the \texttt{ISO-11898}; CAN transceivers as \texttt{MCP2551} require the bit rate lower or equal to 1 Mbit/s.
 
-
-The slowest exact bit rate is 2.5 kbit/s. Note many CAN transceivers as the \texttt{MCP2551} provide "\emph{detection of ground fault (permanent Dominant) on TXD input}". For example, the \texttt{MCP2551} constraints the bit rate to be greater or equal to 16 kbit/s. If you want to work with slower bit rates and you need a transceiver, use one without this detection, as the \texttt{PCA82C250}.
-
-
-In any way, the bit rate computation always gives a consistent result, resulting an actual bit rate closest from the wished bit rate. For example:
+In any way, the bit rate computation always gives a consistent result, resulting an actual bit rate closest from the desired bit rate. For example:
 { \small\begin{lstlisting}[language=c++]
+const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 void setup () {
-  Serial.begin (9600) ;
+  ...
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 440 * 1000) ; // 440 kbit/s 
-  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 0 (--> is false)
+  Serial.print ("mBitRateClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitRateClosedToDesiredRate) ; // 0 (--> is false)
   Serial.print ("actual bit rate: ") ;
   Serial.println (settings.actualBitRate ()) ; //  444,444 bit/s
   Serial.print ("distance: ") ;
-  Serial.println (settings.ppmFromWishedBitRate ()) ; // 10,100 ppm
+  Serial.println (settings.ppmFromDesiredBitRate ()) ; // 10,100 ppm
   ...
 }
 \end{lstlisting}}
@@ -1635,17 +1599,18 @@ void setup () {
 You can get the details of the CAN bit decomposition. For example:
 
 { \small\begin{lstlisting}[language=c++]
+const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 void setup () {
-  Serial.begin (9600) ;
+  ...
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 440 * 1000) ; // 440 kbit/s 
-  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 0 (--> is false)
+  Serial.print ("mBitRateClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitRateClosedToDesiredRate) ; // 0 (--> is false)
   Serial.print ("actual bit rate: ") ;
   Serial.println (settings.actualBitRate ()) ; //  444,444 bit/s
   Serial.print ("distance: ") ;
-  Serial.println (settings.ppmFromWishedBitRate ()) ; // 10,100 ppm
+  Serial.println (settings.ppmFromDesiredBitRate ()) ; // 10,100 ppm
   Serial.print ("Bit rate prescaler: ") ;
-  Serial.println (settings.mBitRatePrescaler) ; // BRP = 2
+  Serial.println (settings.mBitRatePrescaler) ; // BRP = 1
   Serial.print ("Propagation segment: ") ;
   Serial.println (settings.mPropagationSegment) ; // PropSeg = 6
   Serial.print ("Phase segment 1: ") ;
@@ -1653,7 +1618,7 @@ void setup () {
   Serial.print ("Phase segment 2: ") ;
   Serial.println (settings.mPhaseSegment2) ; // PS2 = 6
   Serial.print ("Resynchronization Jump Width: ") ;
-  Serial.println (settings.mRJW) ; // RJW = 4
+  Serial.println (settings.mSJW) ; // SJW = 4
   Serial.print ("Triple Sampling: ") ;
   Serial.println (settings.mTripleSampling) ; // 0, meaning single sampling
   Serial.print ("Sample Point: ") ;
@@ -1667,18 +1632,19 @@ void setup () {
 The \texttt{samplePointFromBitStart} method returns sample point, expressed in per-cent of the bit duration from the beginning of the bit.
 
 
-Note the computation may calculate a bit decomposition too far from the wished bit rate, but it is always consistent. You can check this by calling the \texttt{CANBitSettingConsistency} method.
+Note the computation may calculate a bit decomposition too far from the desired bit rate, but it is always consistent. You can check this by calling the \texttt{CANBitSettingConsistency} method.
 
 You can change the property values for adapting to the particularities of your CAN network propagation time. By example, you can increment the \texttt{mPhaseSegment1} value, and decrement the \texttt{mPhaseSegment2} value in order to sample the \texttt{CAN Rx} pin later.
 
 { \small\begin{lstlisting}[language=c++]
+const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 void setup () {
-  Serial.begin (9600) ;
+  ...
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 500 * 1000) ; // 500 kbit/s
-  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 1 (--> is true)
+  Serial.print ("mBitRateClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitRateClosedToDesiredRate) ; // 1 (--> is true)
   settings.mPhaseSegment1 ++ ; // 5 -> 6: safe, 1 <= PS1 <= 8
-  settings.mPhaseSegment2 -- ; // 5 -> 4: safe, 2 <= PS2 <= 8 and RJW <= PS2
+  settings.mPhaseSegment2 -- ; // 5 -> 4: safe, 2 <= PS2 <= 8 and SJW <= PS2
   Serial.print ("Sample Point: ") ;
   Serial.println (settings.samplePointFromBitStart ()) ; // 75, meaning 75%
   Serial.print ("actual bit rate: ") ;
@@ -1731,14 +1697,15 @@ And sampling points (in per-cent unit) are given by:
 
 \subsectionLabel{The \texttt{CANBitSettingConsistency} method}{CANBitSettingConsistency}
 
-This method checks the CAN bit decomposition (given by \texttt{mBitRatePrescaler}, \texttt{mPropagationSegment}, \texttt{mPhaseSegment1}, \texttt{mPhaseSegment2}, \texttt{mRJW} property values) is consistent.
+This method checks the CAN bit decomposition (given by \texttt{mBitRatePrescaler}, \texttt{mPropagationSegment}, \texttt{mPhaseSegment1}, \texttt{mPhaseSegment2}, \texttt{mSJW} property values) is consistent.
 
 { \small\begin{lstlisting}[language=c++]
+const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 void setup () {
-  Serial.begin (9600) ;
+  ...
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 500 * 1000) ; // 500 kbit/s
-  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 1 (--> is true)
+  Serial.print ("mBitRateClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitRateClosedToDesiredRate) ; // 1 (--> is true)
   settings.mPhaseSegment1 = 0 ; // Error, mPhaseSegment1 should be >= 1 (and <= 8)
   Serial.print ("Consistency: 0x") ;
   Serial.println (settings.CANBitSettingConsistency (), HEX) ; // 0x10, meaning error
@@ -1748,46 +1715,37 @@ void setup () {
 
 The \texttt{CANBitSettingConsistency} method returns $0$ if CAN bit decomposition is consistent. Otherwise, the returned value is a bit field that can report several errors -- see \refTableau{CANBitSettingConsistencyErrorCode}.
 
+
+The \texttt{ACAN2515Settings} class defines static constant properties that can be used as mask error. For example:
+{ \small\begin{lstlisting}[language=c++]
+public: static const uint32_t kBitRatePrescalerIsZero = 1 <<  0 ;
+\end{lstlisting}}
+
 \begin{table}[!ht]
   \newcommand\zero{\texttt{0}}
   \newcommand\X{\texttt{x}}
   \small
   \onehalfspacing
   \centering
-  \begin{tabular}{llllllllllllll}
-    \multicolumn{12}{c}{\textbf{Error Codes}} & \textbf{Error}\\
-    31 -- 11 & 10 & 9 & 8 & 7 & 6 & 5 & 4 & 3 & 2 & 1 & 0 & \\
-    \zero~...  \zero &\zero &\zero &\zero &\zero &\zero &\zero &\zero &\zero &\zero &\zero &\zero & No error \\
-    \zero~...  \zero &\X &\X &\X &\X &\X &\X &\X &\X &\X &\X &\texttt{1} & \texttt{mBitRatePrescaler} == 0\\
-    \zero~...  \zero &\X &\X &\X &\X &\X &\X &\X &\X &\X &\texttt{1}&\X & \texttt{mBitRatePrescaler} > 64\\
-    \zero~...  \zero &\X &\X &\X &\X &\X &\X &\X &\X &\texttt{1}&\X &\X & \texttt{mPropagationSegment} == 0\\
-    \zero~...  \zero &\X &\X &\X &\X &\X &\X &\X &\texttt{1}&\X &\X &\X & \texttt{mPropagationSegment} > 8\\
-    \zero~...  \zero &\X &\X &\X &\X &\X &\X &\texttt{1}&\X &\X &\X &\X & \texttt{mPhaseSegment1} == 0\\
-    \zero~...  \zero &\X &\X &\X &\X &\X &\texttt{1}&\X &\X &\X &\X &\X & \texttt{mPhaseSegment1} > 8\\
-    \zero~...  \zero &\X &\X &\X &\X &\texttt{1}&\X &\X &\X &\X &\X &\X & \texttt{mPhaseSegment2} == 0\\
-    \zero~...  \zero &\X &\X &\X &\texttt{1}&\X &\X &\X &\X &\X &\X &\X & \texttt{mPhaseSegment2} > 8\\
-    \zero~...  \zero &\X &\X &\texttt{1}&\X &\X &\X &\X &\X &\X &\X &\X & \texttt{mRJW} == 0\\
-    \zero~...  \zero &\X &\texttt{1}&\X &\X &\X &\X &\X &\X &\X &\X &\X & \texttt{mRJW} > 4\\
-    \zero~...  \zero &\texttt{1}&\X &\X &\X &\X &\X &\X &\X &\X &\X &\X & \texttt{mRJW} > \texttt{mPhaseSegment2}\\
+  \begin{tabular}{lll}
+    \textbf{Bit} & \textbf{Error Name} & \textbf{Error}\\
+    \texttt{0} & \texttt{kBitRatePrescalerIsZero} & \texttt{mBitRatePrescaler} == 0\\
+    \texttt{1} & \texttt{kBitRatePrescalerIsGreaterThan64} & \texttt{mBitRatePrescaler} > 64\\
+    \texttt{2} & \texttt{kPropagationSegmentIsZero} & \texttt{mPropagationSegment} == 0\\
+    \texttt{3} & \texttt{kPropagationSegmentIsGreaterThan8} & \texttt{mPropagationSegment} > 8\\
+    \texttt{4} & \texttt{kPhaseSegment1IsZero} & \texttt{mPhaseSegment1} == 0\\
+    \texttt{5} & \texttt{kPhaseSegment1IsGreaterThan8} & \texttt{mPhaseSegment1} > 8\\
+    \texttt{6} & \texttt{kPhaseSegment2IsLowerThan2} & \texttt{mPhaseSegment2} < 2\\
+    \texttt{7} & \texttt{kPhaseSegment2IsGreaterThan8} & \texttt{mPhaseSegment2} > 8\\
+    \texttt{8} & \texttt{kPhaseSegment1Is1AndTripleSampling} & (\texttt{mPhaseSegment1} == 1) \&\& \texttt{mTripleSampling}\\
+    \texttt{9} & \texttt{kSJWIsZero} & \texttt{mSJW} == 0\\
+    \texttt{10} & \texttt{kSJWIsGreaterThan4} & \texttt{mSJW} > 4\\
+    \texttt{11} & \texttt{kSJWIsGreaterThanOrEqualToPhaseSegment2} & \texttt{mSJW} >= \texttt{mPhaseSegment2}\\
+    \texttt{12} & \texttt{kPhaseSegment2IsGreaterThanPSPlusPS1} & \texttt{mPhaseSegment2} > (\texttt{mPropagationSegment} + \texttt{mPhaseSegment1})\\
   \end{tabular}
   \caption{The \texttt{ACAN2515Settings::CANBitSettingConsistency} method error codes}
   \labelTableau{CANBitSettingConsistencyErrorCode}
 \end{table}
-
-The \texttt{ACAN2515Settings} class defines static constant properties that can be used as mask error:
-{ \small\begin{lstlisting}[language=c++]
-public: static const uint32_t kBitRatePrescalerIsZero           = 1 <<  0 ;
-public: static const uint32_t kBitRatePrescalerIsGreaterThan256 = 1 <<  1 ;
-public: static const uint32_t kPropagationSegmentIsZero         = 1 <<  2 ;
-public: static const uint32_t kPropagationSegmentIsGreaterThan8 = 1 <<  3 ;
-public: static const uint32_t kPhaseSegment1IsZero              = 1 <<  4 ;
-public: static const uint32_t kPhaseSegment1IsGreaterThan8      = 1 <<  5 ;
-public: static const uint32_t kPhaseSegment2IsZero              = 1 <<  6 ;
-public: static const uint32_t kPhaseSegment2IsGreaterThan8      = 1 <<  7 ;
-public: static const uint32_t kRJWIsZero                        = 1 <<  8 ;
-public: static const uint32_t kRJWIsGreaterThan4                = 1 <<  9 ;
-public: static const uint32_t kRJWIsGreaterThanPhaseSegment2    = 1 << 10 ;
-\end{lstlisting}}
 
 
 
@@ -1800,14 +1758,15 @@ public: static const uint32_t kRJWIsGreaterThanPhaseSegment2    = 1 << 10 ;
 \subsectionLabel{The \texttt{actualBitRate} method}{actualBitRate}
 
 
-The \texttt{actualBitRate} method returns the actual bit computed from \texttt{mBitRatePrescaler}, \texttt{mPropagationSegment}, \texttt{mPhaseSegment1}, \texttt{mPhaseSegment2}, \texttt{mRJW} property values.
+The \texttt{actualBitRate} method returns the actual bit computed from \texttt{mBitRatePrescaler}, \texttt{mPropagationSegment}, \texttt{mPhaseSegment1}, \texttt{mPhaseSegment2}, \texttt{mSJW} property values.
 
 { \small\begin{lstlisting}[language=c++]
+const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 void setup () {
-  Serial.begin (9600) ;
+  ...
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 440 * 1000) ; // 440 kbit/s 
-  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 0 (--> is false)
+  Serial.print ("mBitRateClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitRateClosedToDesiredRate) ; // 0 (--> is false)
   Serial.print ("actual bit rate: ") ;
   Serial.println (settings.actualBitRate ()) ; //  444,444 bit/s
   ...
@@ -1829,18 +1788,19 @@ void setup () {
 \subsectionLabel{The \texttt{exactBitRate} method}{exactBitRate}
 
 
-The \texttt{exactBitRate} method returns \texttt{true} if the actual bit rate is equal to the wished bit rate, and \texttt{false} otherwise.
+The \texttt{exactBitRate} method returns \texttt{true} if the actual bit rate is equal to the desired bit rate, and \texttt{false} otherwise.
 
 { \small\begin{lstlisting}[language=c++]
+const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 void setup () {
-  Serial.begin (9600) ;
-  ACAN2515Settings settings (QUARTZ_FREQUENCY, 842 * 1000) ; // 842 kbit/s
-  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 1 (--> is true)
+  ...
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 727 * 1000) ; // 727 kbit/s
+  Serial.print ("mBitRateClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitRateClosedToDesiredRate) ; // 1 (--> is true)
   Serial.print ("actual bit rate: ") ;
-  Serial.println (settings.actualBitRate ()) ; //  842105 bit/s
+  Serial.println (settings.actualBitRate ()) ; //  727272 bit/s
   Serial.print ("distance: ") ;
-  Serial.println (settings.ppmFromWishedBitRate ()) ; // 124 ppm
+  Serial.println (settings.ppmFromDesiredBitRate ()) ; // 375 ppm
   Serial.print ("Exact: ") ;
   Serial.println (settings.exactBitRate ()) ; // 0 (---> false)
   ...
@@ -1854,21 +1814,22 @@ void setup () {
 
 
 
-\subsectionLabel{The \texttt{ppmFromWishedBitRate} method}{ppmFromWishedBitRate}
+\subsectionLabel{The \texttt{ppmFromDesiredBitRate} method}{ppmFromDesiredBitRate}
 
 
-The \texttt{ppmFromWishedBitRate} method returns the distance from the actual bit rate to the wished bit rate, expressed in part-per-million (ppm): $1~\texttt{ppm} = 10^{-6}$. In other words, $10,000~\texttt{ppm}=1\%$.
+The \texttt{ppmFromDesiredBitRate} method returns the distance from the actual bit rate to the desired bit rate, expressed in part-per-million (ppm): $1~\texttt{ppm} = 10^{-6}$. In other words, $10,000~\texttt{ppm}=1\%$.
 
 { \small\begin{lstlisting}[language=c++]
+const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 void setup () {
-  Serial.begin (9600) ;
-  ACAN2515Settings settings (QUARTZ_FREQUENCY, 842 * 1000) ; // 842 kbit/s
-  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 1 (--> is true)
+  ...
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 727 * 1000) ; // 727 kbit/s
+  Serial.print ("mBitRateClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitRateClosedToDesiredRate) ; // 1 (--> is true)
   Serial.print ("actual bit rate: ") ;
-  Serial.println (settings.actualBitRate ()) ; //  842105 bit/s
+  Serial.println (settings.actualBitRate ()) ; //  727272 bit/s
   Serial.print ("distance: ") ;
-  Serial.println (settings.ppmFromWishedBitRate ()) ; // 124 ppm
+  Serial.println (settings.ppmFromDesiredBitRate ()) ; // 375 ppm
   ...
 }
 \end{lstlisting}}
@@ -1886,11 +1847,12 @@ void setup () {
 The \texttt{samplePointFromBitStart} method returns the distance of sample point from the start of the CAN bit, expressed in part-per-cent (ppc): $1~\texttt{ppc} = 1\% = 10^{-2}$. If triple sampling is selected, the returned value is the distance of the first sample point from the start of the CAN bit. It is a good practice to get sample point from 65\% to 80\%.
 
 { \small\begin{lstlisting}[language=c++]
+const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 void setup () {
-  Serial.begin (9600) ;
+  ...
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 500 * 1000) ; // 500 kbit/s
-  Serial.print ("mBitConfigurationClosedToDesiredRate: ") ;
-  Serial.println (settings.mBitConfigurationClosedToDesiredRate) ; // 1 (--> is true)
+  Serial.print ("mBitRateClosedToDesiredRate: ") ;
+  Serial.println (settings.mBitRateClosedToDesiredRate) ; // 1 (--> is true)
   Serial.print ("Sample point: ") ;
   Serial.println (settings.samplePointFromBitStart ()) ; // 68 --> 68%
   ...
@@ -1906,7 +1868,7 @@ void setup () {
 
 \subsectionLabel{Properties of the \texttt{ACAN2515Settings} class}{propertiesACAN2515Settings}
 
-All properties of the \texttt{ACAN2515Settings} class are declared \texttt{public} and are initialized (\refTableau{tablePropertiesACAN2515Settings}). The default values of properties from \texttt{mWhishedBitRate} until \texttt{mTripleSampling} corresponds to a CAN bit rate of 250,000 bit/s.
+All properties of the \texttt{ACAN2515Settings} class are declared \texttt{public} and are initialized (\refTableau{tablePropertiesACAN2515Settings}). The default values of properties from \texttt{mDesiredBitRate} until \texttt{mTripleSampling} corresponds to a CAN bit rate of \texttt{QUARTZ\_FREQUENCY} / 64, that is 250,000 bit/s for a 16 MHz quartz.
 
 \begin{table}[!ht]
   \small
@@ -1914,93 +1876,72 @@ All properties of the \texttt{ACAN2515Settings} class are declared \texttt{publi
   \centering
   \begin{tabular}{llllll}
     \textbf{Property}& \textbf{Type} & \textbf{Initial value} & \textbf{Comment} \\
-    \texttt{mWhishedBitRate} & \texttt{uint32\_t} & \texttt{250,000} & See \refSubsectionPage{CANbitSettings}\\
-    \texttt{mBitRatePrescaler} & \texttt{uint16\_t} & \texttt{4} & See \refSubsectionPage{CANbitSettings} \\ % (valid values: $1$ ... $256$)\\
-    \texttt{mPropagationSegment} & \texttt{uint8\_t} & \texttt{5} & See \refSubsectionPage{CANbitSettings} \\ %(valid values: $1$ ... $8$)\\
-    \texttt{mPhaseSegment1} & \texttt{uint8\_t} & \texttt{5} & See \refSubsectionPage{CANbitSettings}\\ % (valid values: $1$ ... $8$)\\
-    \texttt{mPhaseSegment2} & \texttt{uint8\_t} & \texttt{5} & See \refSubsectionPage{CANbitSettings} \\ %(valid values: $2$ ... $8$)\\
-    \texttt{mRJW} & \texttt{uint8\_t} & \texttt{4} & See \refSubsectionPage{CANbitSettings} \\ %(valid values: $1$ ... $4$)\\
+    \texttt{mQuartzFrequency} & \texttt{uint32\_t} & \texttt{QUARTZ\_FREQUENCY} & \\
+    \texttt{mDesiredBitRate} & \texttt{uint32\_t} & \texttt{QUARTZ\_FREQUENCY} / 64 & \\
+    \texttt{mBitRatePrescaler} & \texttt{uint8\_t} & \texttt{2} & See \refSubsectionPage{CANbitSettings} \\
+    \texttt{mPropagationSegment} & \texttt{uint8\_t} & \texttt{5} & See \refSubsectionPage{CANbitSettings} \\
+    \texttt{mPhaseSegment1} & \texttt{uint8\_t} & \texttt{5} & See \refSubsectionPage{CANbitSettings}\\
+    \texttt{mPhaseSegment2} & \texttt{uint8\_t} & \texttt{5} & See \refSubsectionPage{CANbitSettings} \\
+    \texttt{mSJW} & \texttt{uint8\_t} & \texttt{4} & See \refSubsectionPage{CANbitSettings} \\
     \texttt{mTripleSampling} & \texttt{bool} & \texttt{false} & See \refSubsectionPage{CANbitSettings} \\
-    \texttt{mBitConfigurationClosedToDesiredRate} & \texttt{bool} & \texttt{true} & See \refSubsectionPage{CANbitSettings} \\
-    \texttt{mListenOnlyMode} & \texttt{bool} & \texttt{false} & See \refSubsubsectionPage{mListenOnlyMode} \\
-    \texttt{mSelfReceptionMode} & \texttt{bool} & \texttt{false} & See \refSubsubsectionPage{mSelfReceptionMode} \\
-    \texttt{mLoopBackMode} & \texttt{bool} & \texttt{false} & See \refSubsubsectionPage{mLoopBackMode} \\
-    \texttt{mConfiguration} & \texttt{tConfiguration} & \texttt{k12\_12\_Filters} & See \refSectionPage{FlexCANconfiguration} \\
-    \texttt{mUseAlternateTxPin} & \texttt{bool} & \texttt{false} & See \refSectionPage{alternatePins} \\
-    \texttt{mUseAlternateRxPin} & \texttt{bool} & \texttt{false} & See \refSectionPage{alternatePins} \\
-    \texttt{mMessageIRQPriority} & \texttt{uint8\_t} & \texttt{64} & See \refSubsubsectionPage{mMessageIRQPriority}\\
+    \texttt{mBitRateClosedToDesiredRate} & \texttt{bool} & \texttt{true} & See \refSubsectionPage{CANbitSettings} \\
+    \texttt{mOneShotModeEnabled} & \texttt{bool} & \texttt{false} & See \refSubsubsectionPage{mOneShotModeEnabled} \\
+    \texttt{mTXBPriority} & \texttt{uint8\_t} & \texttt{0} & See \refSubsubsectionPage{mTXBPriority} \\
+    \texttt{mRequestedMode} & \texttt{ACAN2515RequestedMode} & \texttt{NormalMode} & See \refSubsubsectionPage{mRequestedMode} \\
+    \texttt{mCLKOUT\_SOF\_pin} & \texttt{ACAN2515CLKOUT\_SOF} & \texttt{CLOCK} & See \refSubsubsectionPage{mCLKOUT} \\
+    \texttt{mRolloverEnable} & \texttt{bool} & \texttt{true} & See \refSubsubsectionPage{mRolloverEnable} \\
     \texttt{mReceiveBufferSize} & \texttt{uint16\_t} & \texttt{32} & See \refSubsectionPage{driverReceiveBufferSize} \\
-    \texttt{mTransmitBufferSize} & \texttt{uint16\_t} & \texttt{16} & See \refSubsectionPage{driverTransmitBufferSize} \\
-    \texttt{mTxPinIsOpenCollector} & \texttt{bool} & \texttt{false} & See \refSubsubsectionPage{TxPinIsOpenCollector} \\
-    \texttt{mRxPinHasInternalPullUp} & \texttt{bool} & \texttt{false} & See \refSubsubsectionPage{RxPinHasInternalPullUp} \\
+    \texttt{mTransmitBuffer0Size} & \texttt{uint16\_t} & \texttt{16} & See \refSubsectionPage{driverTransmitBufferSize} \\
+    \texttt{mTransmitBuffer1Size} & \texttt{uint16\_t} & \texttt{0} & See \refSubsectionPage{driverTransmitBufferSize} \\
+    \texttt{mTransmitBuffer2Size} & \texttt{uint16\_t} & \texttt{0} & See \refSubsectionPage{driverTransmitBufferSize} \\
    \end{tabular}
   \caption{Properties of the \texttt{ACAN2515Settings} class}
   \labelTableau{tablePropertiesACAN2515Settings}
 \end{table}
 
 
-\subsubsectionLabel{The \texttt{mListenOnlyMode} property}{mListenOnlyMode}
+\subsubsectionLabel{The \texttt{mOneShotModeEnabled} property}{mOneShotModeEnabled}
 
-This boolean property corresponds to the \texttt{LOM} bit of the FlexCAN \texttt{CTRL1} control register.
-
-
-
-\subsubsectionLabel{The \texttt{mSelfReceptionMode} property}{mSelfReceptionMode}
-
-This boolean property corresponds to the complement of the \texttt{SRXDIS} bit of the FlexCAN \texttt{MCR} control register.
+This boolean property corresponds to the \texttt{OSM} bit of the \texttt{CANCTRL} control register. It is false by default.
 
 
 
-\subsubsectionLabel{The \texttt{mLoopBackMode} property}{mLoopBackMode}
+\subsubsectionLabel{The \texttt{mTXBPriority} property}{mTXBPriority}
 
-This boolean property corresponds to the \texttt{LBP} bit of the FlexCAN \texttt{CTRL1} control register.
+This property defines the transmit priority associated the \texttt{TXB$i$} registers:
+\begin{itemize}
+  \item bits 1-0: priority of \texttt{TXB0};
+  \item bits 3-2: priority of \texttt{TXB1};
+  \item bits 5-4: priority of \texttt{TXB2};
+  \item bits 7-6: \emph{unused}.
+\end{itemize}
+
+By default, its value is $0$, all three \texttt{TXB$i$} registers get the same $0$ priority.
 
 
 
+\subsubsectionLabel{The \texttt{mRequestedMode} property}{mRequestedMode}
 
-
-\subsubsectionLabel{The \texttt{mMessageIRQPriority} property}{mMessageIRQPriority}
-
-This property sets the priority of the \emph{CAN message} interrupt. Highest priority is $0$, lowest is $255$.
-
-
+This property defines the mode requested at this end of the configuration: \texttt{NormalMode} (default value), \texttt{ListenOnlyMode}, \texttt{LoopBackMode}.
 
 
 
 
 
-\subsubsectionLabel{The \texttt{mTxPinIsOpenCollector} property}{TxPinIsOpenCollector}
+\subsubsectionLabel{The \texttt{mCLKOUT} property}{mCLKOUT}
 
-When the \texttt{mTxPinIsOpenCollector} property is set to \texttt{true}, the \texttt{RECESSIVE} output state puts the \texttt{Tx} pin \texttt{Hi-Z}, instead of driving high. The \texttt{Tx} pin is always driving low in \texttt{DOMINANT} state.
-
-\begin{table}[!ht]
-%  \small
-  \onehalfspacing
-  \centering
-  \subfloat[\texttt{mTxPinIsOpenCollector} is \texttt{false} (default)]{
-    \begin{tabular}{llllll}
-      \textbf{Output state} & \textbf{Tx Pin Output} & \\
-      \texttt{DOMINANT} & \texttt{0} & \\
-      \texttt{RECESSIVE} & \texttt{1} & \\
-    \end{tabular}
-  }
-  \quad\quad\quad\quad\quad
-  \subfloat[\texttt{mTxPinIsOpenCollector} is \texttt{true}]{
-    \begin{tabular}{llllll}
-      & \textbf{Output state} & \textbf{Tx Pin Output} \\
-      & \texttt{DOMINANT} & \texttt{0}\\
-      & \texttt{RECESSIVE} & \texttt{Hi-Z}\\
-    \end{tabular}
-  }
-  \caption{\texttt{Tx} pin output, following the \texttt{mTxPinIsOpenCollector} property setting}
-  \labelTableau{tableTxPinState}
-\end{table}
+This property defines signal output on the \texttt{CLKOUT/SOF} pin; possible values are: \texttt{CLOCK} (default value), \texttt{CLOCK2}, \texttt{CLOCK4}, \texttt{CLOCK8}, \texttt{SOF}, \texttt{HiZ}.
 
 
 
-\subsubsectionLabel{The \texttt{mRxPinHasInternalPullUp} property}{RxPinHasInternalPullUp}
+\subsubsectionLabel{The \texttt{mRolloverEnable} property}{mRolloverEnable}
 
-By setting this property, the \texttt{Rx} pin is configured with the internal pullup enabled. This ensures that \texttt{RECESSIVE} values are received if the pin is unconnected.
+This boolean property corresponds to the \texttt{BUKT} bit of the \texttt{RXB0CTRL} control register. If true (value by default), \texttt{RXB0} message will roll over and be written to \texttt{RXB1} if \texttt{RXB0} is full; if false, rollover is disabled.
+
+
+
+
+
 
 
 
@@ -2009,24 +1950,14 @@ By setting this property, the \texttt{Rx} pin is configured with the internal pu
 
 \sectionLabel{CAN controller state}{canControllerState}
 
-Three methods return the CAN controller state, the receive error counter and the transmit error counter.
+Two methods return the receive error counter and the transmit error counter.
 
-\subsection{The \texttt{controllerState} method}
-
-{ \small\begin{lstlisting}[language=c++]
-public: tControllerState controllerState (void) const ;
-\end{lstlisting}}
-
-This method returns the current state (\emph{error active}, \emph{error passive}, \emph{bus off}) of the CAN controller. The \texttt{tControllerState} type is defined by an enumeration:
-{ \small\begin{lstlisting}[language=c++]
-typedef enum {kActive, kPassive, kBusOff} tControllerState ;
-\end{lstlisting}}
 
 
 \subsection{The \texttt{receiveErrorCounter} method}
 
 { \small\begin{lstlisting}[language=c++]
-public: uint32_t receiveErrorCounter (void) const ;
+public: uint8_t receiveErrorCounter (void) ;
 \end{lstlisting}}
 
 
@@ -2034,10 +1965,8 @@ public: uint32_t receiveErrorCounter (void) const ;
 \subsection{The \texttt{transmitErrorCounter} method}
 
 { \small\begin{lstlisting}[language=c++]
-public: uint32_t transmitErrorCounter (void) const ;
+public: uint8_t transmitErrorCounter (void) ;
 \end{lstlisting}}
-
-As the \texttt{CANx\_ESR} FlexCAN control register does not return a valid value when the CAN controller is in the \emph{bus off} state, the value $256$ is forced.
 
 
 

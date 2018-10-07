@@ -164,6 +164,10 @@ class ACAN2515 {
   private: void bitModify2515Register (const uint8_t inRegister, const uint8_t inMask, const uint8_t inData) ;
   private: void setupMaskRegister (const ACAN2515Mask inMask, const uint8_t inRegister) ;
 
+//--- MCP2515 controller state
+  public: uint8_t receiveErrorCounter (void) ;
+  public: uint8_t transmitErrorCounter (void) ;
+
 //--- No Copy
   private: ACAN2515 (const ACAN2515 &) ;
   private: ACAN2515 & operator = (const ACAN2515 &) ;

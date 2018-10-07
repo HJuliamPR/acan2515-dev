@@ -17,7 +17,7 @@ enum class ACAN2515RequestedMode {NormalMode, ListenOnlyMode, LoopBackMode} ;
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
-enum class ACAN2515SignalOnCLKOUT_SOF_pin {CLOCK, CLOCK2, CLOCK4, CLOCK8, SOF, HiZ} ;
+enum class ACAN2515CLKOUT_SOF {CLOCK, CLOCK2, CLOCK4, CLOCK8, SOF, HiZ} ;
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
@@ -36,7 +36,7 @@ class ACANSettings2515 {
   public: uint8_t mSJW = 4 ; // 1...4
   public: uint8_t mBitRatePrescaler = 32 / (1 + mPropagationSegment + mPhaseSegment1 + mPhaseSegment2) ; // 1...64
   public: bool mTripleSampling = false ; // true --> triple sampling, false --> single sampling
-  public: bool mBitConfigurationClosedToDesiredRate = true ; // The above configuration is correct
+  public: bool mBitRateClosedToDesiredRate = true ; // The above configuration is correct
 
 
 //--- One shot mode
@@ -58,13 +58,13 @@ class ACANSettings2515 {
 
 
 //--- Signal on CLKOUT/SOF pin
-  public: ACAN2515SignalOnCLKOUT_SOF_pin mSignalOnCLKOUT_SOF_pin = ACAN2515SignalOnCLKOUT_SOF_pin::CLOCK ;
+  public: ACAN2515CLKOUT_SOF mCLKOUT_SOF_pin = ACAN2515CLKOUT_SOF::CLOCK ;
 
 
 //--- Rollover Enable Bit (is set to the BUKT bit of the RXB0CTRL register)
 //       true  --> RXB0 message will roll over and be written to RXB1 if RXB0 is full
 //       false --> Rollover is disabled
-  public : bool mRolloverEnable = false ;
+  public : bool mRolloverEnable = true ;
 
 
 //--- Receive buffer size

@@ -167,7 +167,7 @@ int main (int /* argc */, const char * /* argv */ []) {
 //  compute (1000 * 1000) ;
 //  compute (10 * 1000) ;
 //  compute (842 * 1000) ;
-//  compute (440 * 1000) ;
+  compute (440 * 1000) ;
 //  compute (821 * 1000) ;
   compute (727 * 1000) ;
 //  compute (2000) ;

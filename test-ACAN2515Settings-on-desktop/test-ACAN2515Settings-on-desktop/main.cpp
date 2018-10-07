@@ -29,7 +29,7 @@ static const uint32_t lastTestedBitRate = 20 * 1000 * 1000 ; // 20 Mbit/s
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 static void compute (const uint32_t inDesiredBaudRate) {
-  ACANSettings2515 settings (QUARTZ_FREQUENCY, inDesiredBaudRate) ;
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, inDesiredBaudRate) ;
   cout << "Desired baud rate: " << settings.mDesiredBitRate << " bit/s"  << endl ;
   cout << "  Divisor : " << (unsigned) settings.mBitRatePrescaler << endl ;
   cout << "  Prop seg: " << (unsigned) settings.mPropagationSegment << endl ;
@@ -48,47 +48,47 @@ static void compute (const uint32_t inDesiredBaudRate) {
 static void exploreAllSettings (void) {
   cout << "Explore all settings" << endl ;
   for (uint32_t br = firstTestedBitRate ; br <= lastTestedBitRate ; br ++) {
-    ACANSettings2515 settings (QUARTZ_FREQUENCY, br) ;
+    ACAN2515Settings settings (QUARTZ_FREQUENCY, br) ;
     const uint32_t errorCode = settings.CANBitSettingConsistency () ;
     if (errorCode != 0) {
       cout << "Error 0x" << hex << errorCode << " for br : " << dec << br << endl ;
-      if ((errorCode & ACANSettings2515::kBitRatePrescalerIsZero) != 0) {
+      if ((errorCode & ACAN2515Settings::kBitRatePrescalerIsZero) != 0) {
         cout << "  -> kBitRatePrescalerIsZero" << endl ;
       }
-      if ((errorCode & ACANSettings2515::kBitRatePrescalerIsGreaterThan64) != 0) {
+      if ((errorCode & ACAN2515Settings::kBitRatePrescalerIsGreaterThan64) != 0) {
         cout << "  -> kBitRatePrescalerIsGreaterThan64" << endl ;
       }
-      if ((errorCode & ACANSettings2515::kPropagationSegmentIsZero) != 0) {
+      if ((errorCode & ACAN2515Settings::kPropagationSegmentIsZero) != 0) {
         cout << "  -> kPropagationSegmentIsZero" << endl ;
       }
-      if ((errorCode & ACANSettings2515::kPropagationSegmentIsGreaterThan8) != 0) {
+      if ((errorCode & ACAN2515Settings::kPropagationSegmentIsGreaterThan8) != 0) {
         cout << "  -> kPropagationSegmentIsGreaterThan8" << endl ;
       }
-      if ((errorCode & ACANSettings2515::kPhaseSegment1IsZero) != 0) {
+      if ((errorCode & ACAN2515Settings::kPhaseSegment1IsZero) != 0) {
         cout << "  -> kPhaseSegment1IsZero" << endl ;
       }
-      if ((errorCode & ACANSettings2515::kPhaseSegment1IsGreaterThan8) != 0) {
+      if ((errorCode & ACAN2515Settings::kPhaseSegment1IsGreaterThan8) != 0) {
         cout << "  -> kPhaseSegment1IsGreaterThan8" << endl ;
       }
-      if ((errorCode & ACANSettings2515::kPhaseSegment2IsLowerThan2) != 0) {
+      if ((errorCode & ACAN2515Settings::kPhaseSegment2IsLowerThan2) != 0) {
         cout << "  -> kPhaseSegment2IsLowerThan2" << endl ;
       }
-      if ((errorCode & ACANSettings2515::kPhaseSegment2IsGreaterThan8) != 0) {
+      if ((errorCode & ACAN2515Settings::kPhaseSegment2IsGreaterThan8) != 0) {
         cout << "  -> kPhaseSegment2IsGreaterThan8" << endl ;
       }
-      if ((errorCode & ACANSettings2515::kPhaseSegment1Is1AndTripleSampling) != 0) {
+      if ((errorCode & ACAN2515Settings::kPhaseSegment1Is1AndTripleSampling) != 0) {
         cout << "  -> kPhaseSegment1Is1AndTripleSampling" << endl ;
       }
-      if ((errorCode & ACANSettings2515::kSJWIsZero) != 0) {
+      if ((errorCode & ACAN2515Settings::kSJWIsZero) != 0) {
         cout << "  -> kSJWIsZero" << endl ;
       }
-      if ((errorCode & ACANSettings2515::kSJWIsGreaterThan4) != 0) {
+      if ((errorCode & ACAN2515Settings::kSJWIsGreaterThan4) != 0) {
         cout << "  -> kSJWIsGreaterThan4" << endl ;
       }
-      if ((errorCode & ACANSettings2515::kSJWIsGreaterThanOrEqualToPhaseSegment2) != 0) {
+      if ((errorCode & ACAN2515Settings::kSJWIsGreaterThanOrEqualToPhaseSegment2) != 0) {
         cout << "  -> kSJWIsGreaterThanOrEqualToPhaseSegment2" << endl ;
       }
-      if ((errorCode & ACANSettings2515::kPhaseSegment2IsGreaterThanPSPlusPS1) != 0) {
+      if ((errorCode & ACAN2515Settings::kPhaseSegment2IsGreaterThanPSPlusPS1) != 0) {
         cout << "  -> kPhaseSegment2IsGreaterThanPSPlusPS1" << endl ;
       }
       cout << "  Divisor : " << (unsigned) settings.mBitRatePrescaler << endl ;
@@ -112,8 +112,8 @@ static void exploreAllSettings (void) {
 static void allCorrectSettings (Set <uint32_t> & ioValidSettingSet) {
   cout << "All valid settings" << endl ;
   for (uint32_t br = firstTestedBitRate ; br <= lastTestedBitRate ; br ++) {
-    ACANSettings2515 settings (QUARTZ_FREQUENCY, br) ;
-    if (settings.mBitConfigurationClosedToDesiredRate) {
+    ACAN2515Settings settings (QUARTZ_FREQUENCY, br) ;
+    if (settings.mBitRateClosedToDesiredRate) {
       ioValidSettingSet.insert (br) ;
     }
   }
@@ -127,8 +127,8 @@ static void allCorrectSettings (Set <uint32_t> & ioValidSettingSet) {
 static void allExactSettings (Set <uint32_t> & ioExactSettingSet) {
   cout << "All exact settings" << endl ;
   for (uint32_t br = firstTestedBitRate ; br <= lastTestedBitRate ; br ++) {
-    ACANSettings2515 settings (QUARTZ_FREQUENCY, br, 0) ;
-    if (settings.mBitConfigurationClosedToDesiredRate) {
+    ACAN2515Settings settings (QUARTZ_FREQUENCY, br, 0) ;
+    if (settings.mBitRateClosedToDesiredRate) {
       ioExactSettingSet.insert (br) ;
     }
   }

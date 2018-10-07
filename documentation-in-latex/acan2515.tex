@@ -532,7 +532,7 @@ Builtin led is used for signaling. It blinks led at 10 Hz during until serial mo
 In this sketch, we use \texttt{SPI} alternate pins. These functions are dedicated to Teensy 3.x\footnote{See \url{https://www.pjrc.com/teensy/td_libs_SPI.html}}. Other platforms have similar functions.
 
 { \small\begin{lstlisting}[language=c++]
-  ACANSettings2515 settings (QUARTZ_FREQUENCY, 125 * 1000) ;
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
 \end{lstlisting}}
 
 Configuration is a four-step operation. This line is the first step. It instanciates the \texttt{settings} object of the \texttt{ACAN2515Settings} class. The constructor has two parameters: the \texttt{MCP2515} quartz frequency, and the desired CAN bit rate (here, 125 kb/s). It returns a \texttt{settings} object fully initialized with CAN bit settings for the desired bit rate, and default values for other configuration properties.
@@ -1371,12 +1371,12 @@ You can use this function for maintaining statistics about receiver filter match
 
 There are three \texttt{begin} method prototypes:
 { \small\begin{lstlisting}[language=c++]
-uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings,
+uint32_t ACAN2515::begin (const ACAN2515Settings & inSettings,
                           void (* inInterruptServiceRoutine) (void)) ;
 \end{lstlisting}}
 
 { \small\begin{lstlisting}[language=c++]
-uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings,
+uint32_t ACAN2515::begin (const ACAN2515Settings & inSettings,
                           void (* inInterruptServiceRoutine) (void),
                           const ACAN2515Mask inRXM0,
                           const ACAN2515AcceptanceFilter inAcceptanceFilters [],
@@ -1384,7 +1384,7 @@ uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings,
 \end{lstlisting}}
 
 { \small\begin{lstlisting}[language=c++]
-uint32_t ACAN2515::begin (const ACANSettings2515 & inSettings,
+uint32_t ACAN2515::begin (const ACAN2515Settings & inSettings,
                           void (* inInterruptServiceRoutine) (void),
                           const ACAN2515Mask inRXM0,
                           const ACAN2515Mask inRXM1,

@@ -56,10 +56,10 @@ def compileArduinoSketch (scriptDir, sketch) :
 scriptDir = os.path.dirname (os.path.abspath (sys.argv [0]))
 os.chdir (scriptDir)
 #--- Compile sketches
-compileArduinoSketch (scriptDir, "hardspi-int-stress")
-compileArduinoSketch (scriptDir, "loopbackDemo")
-compileArduinoSketch (scriptDir, "loopbackFilterDataByte")
-compileArduinoSketch (scriptDir, "loopbackUsingFilters")
+compileArduinoSketch (scriptDir, "TestWithACAN")
+compileArduinoSketch (scriptDir, "LoopBackDemo")
+compileArduinoSketch (scriptDir, "LoopBackFilterDataByte")
+compileArduinoSketch (scriptDir, "LoopBackUsingFilters")
 #--- Compile latex doc
 runCommand ([scriptDir + "/documentation-in-latex/-build.command"])
 #--- Copy files in the distribution directory

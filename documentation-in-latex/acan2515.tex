@@ -330,7 +330,7 @@
 \begin{center}
   \begin{tabular}{llp{10cm}}
     \textbf{Version} & \textbf{Date} & \textbf{Comment}\\
-    1.0.0 & ???? & Initial release \\
+    1.0.0 & October 10th, 2018 & Initial release \\
   \end{tabular}
 \end{center}
 
@@ -451,7 +451,7 @@ The \refFigure{}{figureStructureStationCAN} illustrates message flow for sending
 
 \section{A simple example: \texttt{LoopBackDemo}}
 
-The following code is a sample code for introducing the \texttt{ACAN2515} library, extracted from the \texttt{LoopBackDemo} sample code included in the library distribution. It runs natively on Teensy 3.5 using \texttt{SPI} alternate pins, but is easily adaptable to any microcontroller supporting \texttt{SPI}. It demonstrates how to configure the driver, to send a CAN message, and to receive a CAN message.
+The following code is a sample code for introducing the \texttt{ACAN2515} library, extracted from the \texttt{LoopBackDemo} sample code included in the library distribution. It runs natively on any Arduino compatible board, and is easily adaptable to any microcontroller supporting \texttt{SPI}. It demonstrates how to configure the driver, to send a CAN message, and to receive a CAN message.
 
 Note: this code runs without any CAN transceiver (the \texttt{TXCAN} and \texttt{RXCAN} pins of the \texttt{MCP2515} are left open), the \texttt{MCP2515} is configured with the \emph{loop back} setting on.
 
@@ -525,11 +525,9 @@ Builtin led is used for signaling. It blinks led at 10 Hz during until serial mo
 
 
 { \small\begin{lstlisting}[language=c++]
-  SPI.setMOSI (MCP2515_SI) ;
-  SPI.setMISO (MCP2515_SO) ;
-  SPI.setSCK (MCP2515_SCK) ;
+  SPI.begin () ;
 \end{lstlisting}}
-In this sketch, we use \texttt{SPI} alternate pins. These functions are dedicated to Teensy 3.x\footnote{See \url{https://www.pjrc.com/teensy/td_libs_SPI.html}}. Other platforms have similar functions.
+You should call \texttt{SPI.begin}. Many platforms define alternate pins for SPI. On Teensy 3.x (\refSubsectionPage{TeensyAlternatePins}), selecting alternate pins should be done before calling \texttt{SPI.begin}, on Adafruit Feather M0 (\refSubsectionPage{AdafruitFeatherM0AlternatePins}), this should be done after. Calling \texttt{SPI.begin} explicitly allows you to fully handle alternate pins.
 
 { \small\begin{lstlisting}[language=c++]
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
@@ -715,21 +713,26 @@ Connecting a \texttt{MCP2515} requires 5 pins (\refFigure{}{figureHardwareSPI}):
 
 The \texttt{begin} function of \texttt{ACAN2515} library configures the selected SPI with a frequency of 10 Mbit/s (the maximum frequency supported by the \texttt{MCP2515}). More precisely, the SPI library of your microcontroller may adopt a frequency lower than 10 Mbit/s; for example, the maximum frequency of the Arduino Uno SPI is 8 Mbit/s.
 
-\subsection{Using alternate pins on Teensy 3.x}
+
+
+
+\subsectionLabel{Using alternate pins on Teensy 3.x}{TeensyAlternatePins}
+
+{\bf Demo sketch: } \texttt{LoopBackDemoTeensy3x}.
 
 On Teensy 3.x, "\emph{the main SPI pins are enabled by default. SPI pins can be moved to their alternate position with \texttt{SPI.setMOSI(pin)}, \texttt{SPI.setMISO(pin)}, and \texttt{SPI.setSCK(pin)}. You can move all of them, or just the ones that conflict, as you prefer.}"\footnote{See \url{https://www.pjrc.com/teensy/td_libs_SPI.html}}
 
-For example, I can use \texttt{SPI0} on a Teensy 3.5 with these alternate pins\footnote{See \url{https://www.pjrc.com/teensy/pinout.html}}:
+For example, the \texttt{LoopBackDemoTeensy3x} sketch uses \texttt{SPI0} on a Teensy 3.5 with these alternate pins\footnote{See \url{https://www.pjrc.com/teensy/pinout.html}}:
 \begin{figure}[!ht]
   \small
   \centering
   \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
   %--- Microcontroller
     \draw[very thick, fill=lightgray!25] (-1.5, 0) -- ++(5.5, 0)  -- ++(0, 3) -- ++ (-5.5, 0) ;
-    \draw (0, 1.25) node {\bf\emph{Teensy 3.5}};
+    \draw (0, 1.5) node {\bf\emph{Teensy 3.5}};
   %--- MCP2515
     \draw[very thick, fill=lightgray!25] (12, 0) -- ++(-4, 0)  -- ++(0, 3) -- ++ (4, 0) ;
-    \draw (10.5, 1.25) node {\bf\emph{MCP2515}};
+    \draw (10.5, 1.5) node {\bf\emph{MCP2515}};
   %--- INT
     \draw[<-, thick] (4, 2.5) -- ++ (4, 0) ;
     \draw (8, 2.5) node[right] {$\overline{\tt INT}$};
@@ -754,7 +757,7 @@ For example, I can use \texttt{SPI0} on a Teensy 3.5 with these alternate pins\f
     \draw (4, .5) node[left] {\tt MISO0};
     \draw (4, .5) node[above right] {\tt 39};
   \end{tikzpicture}
-  \caption{Using hardware SPI alternate pins on a Teensy 3.5}
+  \caption{Using SPI alternate pins on a Teensy 3.5}
   \labelFigure{figureHardwareSPIAlternatePins}
 \end{figure}
 
@@ -769,6 +772,7 @@ void setup () {
   SPI.setMOSI (MCP2515_SI) ;
   SPI.setMISO (MCP2515_SO) ;
   SPI.setSCK (MCP2515_SCK) ;
+  SPI.begin () ;
   ...
   const uint32_t errorCode = can.begin (settings) ;
   ...
@@ -793,10 +797,90 @@ void setup () {
   SPI.setMOSI (MCP2515_SI) ;
   SPI.setMISO (MCP2515_SO) ;
   SPI.setSCK (MCP2515_SCK) ;
+  SPI.begin () ;
   ...
   const uint32_t errorCode = can.begin (settings) ;
   ...
 \end{lstlisting}}
+
+
+
+
+\subsectionLabel{Using alternate pins on an Adafruit Feather M0}{AdafruitFeatherM0AlternatePins}
+
+{\bf Demo sketch: } \texttt{LoopBackDemoAdafruitFeatherM0}.
+
+See \url{https://learn.adafruit.com/using-atsamd21-sercom-to-add-more-spi-i2c-serial-ports/overview} document that explains in details how configure and set an alternate SPI on Adafruit Feather M0.
+
+For example, the \texttt{LoopBackDemoAdafruitFeatherM0} sketch uses \texttt{SERCOM1} on an Adafruit Feather M0 as illustrated in \refFigure{}{figureAdafruitFeatherM0AlternatePins}.
+\begin{figure}[!ht]
+  \small
+  \centering
+  \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
+  %--- Microcontroller
+    \draw[very thick, fill=lightgray!25] (-1.5, 0) -- ++(5.5, 0)  -- ++(0, 3) -- ++ (-5.5, 0) ;
+    \draw (-1.5, 1.5) node[right] {\bf\emph{Adafruit Feather M0}};
+  %--- MCP2515
+    \draw[very thick, fill=lightgray!25] (12, 0) -- ++(-4, 0)  -- ++(0, 3) -- ++ (4, 0) ;
+    \draw (10.5, 1.5) node {\bf\emph{MCP2515}};
+  %--- INT
+    \draw[<-, thick] (4, 2.5) -- ++ (4, 0) ;
+    \draw (8, 2.5) node[right] {$\overline{\tt INT}$};
+    \draw (4, 2.5) node[left] {\tt MCP2515\_INT};
+    \draw (4, 2.5) node[above right] {\tt 5};
+  %--- CS
+    \draw[->, thick] (4, 2) -- ++ (4, 0) ;
+    \draw (8, 2) node[right] {$\overline{\tt CS}$};
+    \draw (4, 2) node[left] {\tt MCP2515\_CS};
+    \draw (4, 2) node[above right] {\tt 6};
+  %--- SCK
+    \draw[->, thick] (4, 1.5) -- ++ (4, 0) ;
+    \draw (8, 1.5) node[right] {\tt SCK};
+    \draw (4, 1.5) node[left] {\tt SCK};
+    \draw (4, 1.5) node[above right] {\tt 12};
+  %--- SI
+    \draw[->, thick] (4, 1) -- ++ (4, 0) ;
+    \draw (8, 1) node[right] {\tt SI};
+    \draw (4, 1) node[left] {\tt MOSI};
+    \draw (4, 1) node[above right] {\tt 11};
+  %--- SO
+    \draw[<-, thick] (4, .5) -- ++ (4, 0) ;
+    \draw (8, .5) node[right] {\tt S0};
+    \draw (4, .5) node[left] {\tt MISO};
+    \draw (4, .5) node[above right] {\tt 10};
+  \end{tikzpicture}
+  \caption{Using SPI alternate pins on an Adafruit Feather M0}
+  \labelFigure{figureAdafruitFeatherM0AlternatePins}
+\end{figure}
+
+The configuration code is the following. Note you should call the \texttt{pinPeripheral} function \textbf{after} calling the \texttt{mySPI.begin} function.
+{ \small\begin{lstlisting}[language=c++]
+#include <wiring_private.h>
+...
+static const byte MCP2515_SCK = 12 ; // SCK pin, SCK input of MCP2515 
+static const byte MCP2515_SI  = 11 ; // MOSI pin, SI input of MCP2515  
+static const byte MCP2515_SO  = 10 ; // MISO pin, SO output of MCP2515 
+
+SPIClass mySPI (&sercom1,
+                MCP2515_SO, MCP2515_SI, MCP2515_SCK,
+                SPI_PAD_0_SCK_3, SERCOM_RX_PAD_2);
+
+static const byte MCP2515_CS  =  6 ; // CS input of MCP2515 
+static const byte MCP2515_INT =  5 ; // INT output of MCP2515
+...
+ACAN2515 can (MCP2515_CS, mySPI, MCP2515_INT) ;
+...
+void setup () {
+  ...
+  mySPI.begin () ;
+  pinPeripheral (MCP2515_SI, PIO_SERCOM);
+  pinPeripheral (MCP2515_SCK, PIO_SERCOM);
+  pinPeripheral (MCP2515_SO, PIO_SERCOM);
+  ...
+  const uint32_t errorCode = can.begin (settings) ;
+  ...
+\end{lstlisting}}
+
 
 
 
@@ -1512,7 +1596,7 @@ The \texttt{ACAN2515::begin} method you have called names the \texttt{inRXM0} an
 
 \sectionLabel{\texttt{ACAN2515Settings} class reference}{ACAN2515SettingsRef}
 
-{\bf Note. } The \texttt{ACAN2515Settings} class is not Arduino specific. You can compile it on your desktop computer with your favorite C++ compiler. In the \url{https://github.com/pierremolinaro/acan2515-dev} GitHub repository, a command line tool is defined for exploring all CAN bit rates from 1 bit/s and 20 Mbit/s for a 16 MHz quartz: 63804 bit rates are valid, and 29 are exact. It also check that computed CAN bit decompositions are all valid.
+{\bf Note. } The \texttt{ACAN2515Settings} class is not Arduino specific. You can compile it on your desktop computer with your favorite C++ compiler. In the \url{https://github.com/pierremolinaro/acan2515-dev} GitHub repository, a command line tool is defined for exploring all CAN bit rates from 1 bit/s and 20 Mbit/s for a 16 MHz quartz: 63810 bit rates are valid, and 29 are exact. It also check that computed CAN bit decompositions are all valid.
 
 
 

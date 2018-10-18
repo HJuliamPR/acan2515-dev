@@ -172,6 +172,9 @@ bool ACAN2515::tryToSend (const CANMessage & inMessage) {
     idx = 0 ;
   }
 //---
+  #if (defined (__MK64FX512__) || defined (__MK66FX1M0__)) && (TEENSYDUINO<=144)
+    noInterrupts () ;
+  #endif
   mSPI.beginTransaction (mSPISettings) ;
     bool ok = mTXBIsFree [idx] ;
     if (ok) { // Transmit buffer and TXB are both free: transmit immediatly
@@ -181,6 +184,9 @@ bool ACAN2515::tryToSend (const CANMessage & inMessage) {
       ok = mTransmitBuffer [idx].append (inMessage) ;
     }
   mSPI.endTransaction () ;
+  #if (defined (__MK64FX512__) || defined (__MK66FX1M0__)) && (TEENSYDUINO<=144)
+    interrupts () ;
+  #endif
   return ok ;
 }
 
@@ -189,18 +195,18 @@ bool ACAN2515::tryToSend (const CANMessage & inMessage) {
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 bool ACAN2515::available (void) {
-  mSPI.beginTransaction (mSPISettings) ;
+  noInterrupts () ;
     const bool hasReceivedMessage = mReceiveBuffer.count () > 0 ;
-  mSPI.endTransaction () ;
+  interrupts () ;
   return hasReceivedMessage ;
 }
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 bool ACAN2515::receive (CANMessage & outMessage) {
-  mSPI.beginTransaction (mSPISettings) ;
+  noInterrupts () ;
     const bool hasReceivedMessage = mReceiveBuffer.remove (outMessage) ;
-  mSPI.endTransaction () ;
+  interrupts () ;
 //---
   return hasReceivedMessage ;
 }

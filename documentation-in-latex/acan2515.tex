@@ -305,7 +305,7 @@
 %                                                                                                                       *
 %-----------------------------------------------------------------------------------------------------------------------*
 
-\title{\bf \Huge{ACAN2515 library for Arduino\\Version 1.0.0}}
+\title{\bf \Huge{ACAN2515 library for Arduino\\Version 1.0.1}}
 \author{Pierre Molinaro}
 \date {\today}
 
@@ -331,6 +331,8 @@
   \begin{tabular}{llp{10cm}}
     \textbf{Version} & \textbf{Date} & \textbf{Comment}\\
     1.0.0 & October 12, 2018 & Initial release \\
+    1.0.1 & October ??, 2018 & Workaround external interrupt masking in Teensyduino <= 1.44 for Teensy 3.5 / 3.6\\
+          &          & Use of a lambda function for interrupt service routine
   \end{tabular}
 \end{center}
 
@@ -480,13 +482,13 @@ ACAN2515 can (MCP2515_CS, SPI, MCP2515_INT) ;
 \end{lstlisting}}
 Instanciation of the \texttt{ACAN2515} library, declaration and initialization of the \texttt{can} object that implements the driver. The constructor names: the number of the pin connected to the $\overline{\texttt{CS}}$ pin, the \texttt{SPI} object (you can use \texttt{SPI1}, \texttt{SPI2}, …), the number of the pin connected to the $\overline{\texttt{INT}}$ pin.
 
-{ \small\begin{lstlisting}[language=c++]
-void canISR (void) {
-  can.isr () ;
-}
-\end{lstlisting}}
-
-The driver requires an \emph{interrupt service routine}: one instruction is required, calling the \texttt{isr} method of the driver object.
+%{ \small\begin{lstlisting}[language=c++]
+%void canISR (void) {
+%  can.isr () ;
+%}
+%\end{lstlisting}}
+%
+%The driver requires an \emph{interrupt service routine}: one instruction is required, calling the \texttt{isr} method of the driver object.
 
 
 
@@ -547,9 +549,9 @@ This is the second step. You can override the values of the properties of \textt
 
 
 { \small\begin{lstlisting}[language=c++]
-  const uint32_t errorCode = can.begin (settings, canISR) ;
+  const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
 \end{lstlisting}}
-This is the third step, configuration of the \texttt{can} driver with \texttt{settings} values. The driver is configured for being able to send any (standard / extended, data / remote) frame, and to receive all (standard / extended, data / remote) frames. If you want to define reception filters, see \refSectionPage{acceptanceFilters}.
+This is the third step, configuration of the \texttt{can} driver with \texttt{settings} values. The driver is configured for being able to send any (standard / extended, data / remote) frame, and to receive all (standard / extended, data / remote) frames. If you want to define reception filters, see \refSectionPage{acceptanceFilters}. The second argument is the \emph{interrupt service routine}, and is defined by a C++ lambda expression\footnote{\url{https://en.cppreference.com/w/cpp/language/lambda}}. See \refSubsectionPage{isrExplicit} for using a function instead.
 
 
 
@@ -626,7 +628,7 @@ As the \texttt{MCP2515} controller is configured in \emph{loop back} mode, all s
 
 \sectionLabel{The \texttt{CANMessage} class}{CANMessageClass}
 
-{\bf Note. } The \texttt{CANMessage} class is declared in the \texttt{CANMessage.h} header file. The class declaration is protected by an include guard that causes the macro \texttt{GENERIC\_CAN\_MESSAGE\_DEFINED} to be defined. The ACAN\footnote{The ACAN driver is a CAN driver for FlexCAN modules integrated in the Teensy 3.x microcontrollers.} (version 1.0.3 and above) driver contains an identical \texttt{CANMessage.h} file header, enabling using both ACAN driver and ACAN2515 driver in a sketch.
+{\bf Note. } The \texttt{CANMessage} class is declared in the \texttt{CANMessage.h} header file. The class declaration is protected by an include guard that causes the macro \texttt{GENERIC\_CAN\_MESSAGE\_DEFINED} to be defined. The ACAN\footnote{The ACAN driver is a CAN driver for FlexCAN modules integrated in the Teensy 3.x microcontrollers, \url{https://github.com/pierremolinaro/acan}.} (version 1.0.3 and above) driver, the ACAN2517\footnote{The ACAN2517 driver is a CAN driver for the \texttt{MCP2517} CAN controller, \url{https://github.com/pierremolinaro/acan2517}.} driver contain an identical \texttt{CANMessage.h} file header, enabling using ACAN driver, ACAN2515 driver and ACAN2517 driver in a same sketch.
 
 A \emph{CAN message} is an object that contains all CAN frame user informations. All properties are initialized by default, and represent a standard data frame, with an identifier equal to $0$, and without any data.
 
@@ -700,10 +702,10 @@ Connecting a \texttt{MCP2515} requires 5 pins (\refFigure{}{figureHardwareSPI}):
     \draw (4, 1) node[left] {\tt MOSI};
   %--- SO
     \draw[<-, thick] (4, .5) -- ++ (4, 0) ;
-    \draw (8, .5) node[right] {\tt S0};
+    \draw (8, .5) node[right] {\tt SO};
     \draw (4, .5) node[left] {\tt MISO};
   \end{tikzpicture}
-  \caption{Hardware SPI}
+  \caption{\texttt{MCP2515} connection to a microcontroller}
   \labelFigure{figureHardwareSPI}
 \end{figure}
 
@@ -750,7 +752,7 @@ For example, the \texttt{LoopBackDemoTeensy3x} sketch uses \texttt{SPI0} on a Te
     \draw (4, 1) node[above right] {\tt 28};
   %--- SO
     \draw[<-, thick] (4, .5) -- ++ (4, 0) ;
-    \draw (8, .5) node[right] {\tt S0};
+    \draw (8, .5) node[right] {\tt SO};
     \draw (4, .5) node[left] {\tt MISO0};
     \draw (4, .5) node[above right] {\tt 39};
   \end{tikzpicture}
@@ -760,6 +762,8 @@ For example, the \texttt{LoopBackDemoTeensy3x} sketch uses \texttt{SPI0} on a Te
 
 You call the \texttt{SPI.setMOSI}, \texttt{SPI.setMISO}, and \texttt{SPI.setSCK} functions \textbf{before} calling the \texttt{begin} function of your \texttt{ACAN2515} instance (generally done in the \texttt{setup} function):
 { \small\begin{lstlisting}[language=c++]
+ACAN2515 can (MCP2515_CS, SPI, MCP2515_INT) ;
+...
 static const byte MCP2515_SCK = 27 ; // SCK input of MCP2515 
 static const byte MCP2515_SI  = 28 ; // SI input of MCP2515  
 static const byte MCP2515_SO  = 39 ; // SO output of MCP2515 
@@ -771,7 +775,7 @@ void setup () {
   SPI.setSCK (MCP2515_SCK) ;
   SPI.begin () ;
   ...
-  const uint32_t errorCode = can.begin (settings) ;
+  const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
   ...
 \end{lstlisting}}
 
@@ -796,7 +800,7 @@ void setup () {
   SPI.setSCK (MCP2515_SCK) ;
   SPI.begin () ;
   ...
-  const uint32_t errorCode = can.begin (settings) ;
+  const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
   ...
 \end{lstlisting}}
 
@@ -842,7 +846,7 @@ For example, the \texttt{LoopBackDemoAdafruitFeatherM0} sketch uses \texttt{SERC
     \draw (4, 1) node[above right] {\tt 11};
   %--- SO
     \draw[<-, thick] (4, .5) -- ++ (4, 0) ;
-    \draw (8, .5) node[right] {\tt S0};
+    \draw (8, .5) node[right] {\tt SO};
     \draw (4, .5) node[left] {\tt MISO};
     \draw (4, .5) node[above right] {\tt 10};
   \end{tikzpicture}
@@ -857,11 +861,11 @@ The configuration code is the following. Note you should call the \texttt{pinPer
 static const byte MCP2515_SCK = 12 ; // SCK pin, SCK input of MCP2515 
 static const byte MCP2515_SI  = 11 ; // MOSI pin, SI input of MCP2515  
 static const byte MCP2515_SO  = 10 ; // MISO pin, SO output of MCP2515 
-
+...
 SPIClass mySPI (&sercom1,
                 MCP2515_SO, MCP2515_SI, MCP2515_SCK,
                 SPI_PAD_0_SCK_3, SERCOM_RX_PAD_2);
-
+...
 static const byte MCP2515_CS  =  6 ; // CS input of MCP2515 
 static const byte MCP2515_INT =  5 ; // INT output of MCP2515
 ...
@@ -1145,7 +1149,7 @@ It is recommended to read the Microchip documentation \texttt{DS20001801H}, sect
 
 \subsection{Default behaviour}
 
-The \texttt{can.begin (settings, canISR)} method sets the \texttt{RXM0} and \texttt{RXM1} registers to $0$, so, the \texttt{MCP2515} receives all CAN bus messages.
+The \texttt{can.begin (settings, [] { can.isr () ; })} method sets the \texttt{RXM0} and \texttt{RXM1} registers to $0$, so, the \texttt{MCP2515} receives all CAN bus messages.
 
 More precisely, as \texttt{RXM0} is zero, all messages are received in \texttt{RXB0}. If a new message is received as \texttt{RXB0} is full, the new message is lost.
 
@@ -1185,7 +1189,7 @@ For dealing with all situations, the \texttt{ACAN2515::begin} method accepts thr
 {\bf No filter.}
 { \small\begin{lstlisting}[language=c++]
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
-  const uint32_t errorCode = can.begin (settings, canISR) ;
+  const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
 \end{lstlisting}}
 No filter is provided, \texttt{RXM0} and \texttt{RXM1} are set to $0$, enabling the acceptance of all messages by \texttt{RXB0}.
 
@@ -1199,7 +1203,7 @@ No filter is provided, \texttt{RXM0} and \texttt{RXM1} are set to $0$, enabling 
     {extended2515Filter (0x12345678), receive0} // RXF0
   } ;
   const uint32_t errorCode = can.begin (settings,
-                                        canISR,
+                                        [] { can.isr () ; },
                                         rxm0, // Value set to RXM0 register
                                         filter, // The filter array
                                         1) ; // Filter array size
@@ -1225,7 +1229,7 @@ The definition of a filter is associated with a call back function -- here \text
     {extended2515Filter (0x18765432), receive1}  // RXF1
   } ;
   const uint32_t errorCode = can.begin (settings,
-                                        canISR,
+                                        [] { can.isr () ; },
                                         rxm0, // Value set to RXM0 register
                                         filters, // The filter array
                                         2) ; // Filter array size
@@ -1254,7 +1258,7 @@ Here, two types of message are accepted, extended (data or remote) frames with a
     {standard2515Filter (0x123, 0, 0), receive3} // RXF3
   } ;
   const uint32_t errorCode = can.begin (settings,
-                                        canISR,
+                                        [] { can.isr () ; },
                                         rxm0, // Value set to RXM0 register
                                         rxm1, // Value set to RXM1 register
                                         filters, // The filter array
@@ -1284,7 +1288,7 @@ Four types of message are accepted, extended (data or remote) frames with an ide
     {standard2515Filter (0x3AB, 0, 0), receive5} // RXF5
   } ;
   const uint32_t errorCode = can.begin (settings,
-                                        canISR,
+                                        [] { can.isr () ; },
                                         rxm0, // Value set to RXM0 register
                                         rxm1, // Value set to RXM1 register
                                         filters, // The filter array
@@ -1473,6 +1477,26 @@ uint32_t ACAN2515::begin (const ACAN2515Settings & inSettings,
                           const uint32_t inAcceptanceFilterCount) ;
 \end{lstlisting}}
 
+
+
+\subsectionLabel{Defining explicitly the interrupt service routine}{isrExplicit}
+
+In this document, the \emph{interrupt service routine} is defined by a lambda expression:
+{ \small\begin{lstlisting}[language=c++]
+  const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
+\end{lstlisting}}
+
+Instead of a lambda expression, you are free to define the \emph{interrupt service routine} as a function:
+{ \small\begin{lstlisting}[language=c++]
+void canISR () {
+  can.isr () ;
+}
+\end{lstlisting}}
+
+And you pass \texttt{canISR} as argument to the \texttt{begin} method:
+{ \small\begin{lstlisting}[language=c++]
+  const uint32_t errorCode = can.begin (settings, canISR) ;
+\end{lstlisting}}
 
 
 \subsectionLabel{The error code}{errorCodeMethodBegin}

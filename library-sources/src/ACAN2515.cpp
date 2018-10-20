@@ -221,7 +221,7 @@ bool ACAN2515::dispatchReceivedMessage (const tFilterMatchCallBack inFilterMatch
     if (NULL != inFilterMatchCallBack) {
       inFilterMatchCallBack (filterIndex) ;
     }
-    ACAN2515AcceptanceFilter::tCallBackRoutine callBackFunction = mCallBackFunctionArray [filterIndex] ;
+    ACANCallBackRoutine callBackFunction = mCallBackFunctionArray [filterIndex] ;
     if (NULL != callBackFunction) {
       callBackFunction (receivedMessage) ;
     }

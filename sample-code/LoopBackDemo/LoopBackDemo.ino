@@ -7,12 +7,16 @@
 //——————————————————————————————————————————————————————————————————————————————
 //  MCP2515 connections:
 //    - standard SPI pins for SCK, MOSI and MISO
-//    - standard output for CS
+//    - a digital output for CS
 //    - interrupt input pin for INT
 //——————————————————————————————————————————————————————————————————————————————
+// If you use CAN-BUS shield (http://wiki.seeedstudio.com/CAN-BUS_Shield_V2.0/) with Arduino Uno,
+// use B connections for MISO, MOSI, SCK, #9 or #10 for CS (as you want),
+// #2 or #3 for INT (as you want).
+//——————————————————————————————————————————————————————————————————————————————
 
-static const byte MCP2515_CS  = 0 ; // CS input of MCP2515 (adapt to your design) 
-static const byte MCP2515_INT = 2 ; // INT output of MCP2515 (adapt to your design)
+static const byte MCP2515_CS  = 10 ; // CS input of MCP2515 (adapt to your design) 
+static const byte MCP2515_INT =  3 ; // INT output of MCP2515 (adapt to your design)
 
 //——————————————————————————————————————————————————————————————————————————————
 //  MCP2515 Driver object

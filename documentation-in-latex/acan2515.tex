@@ -878,7 +878,7 @@ void setup () {
   pinPeripheral (MCP2515_SCK, PIO_SERCOM);
   pinPeripheral (MCP2515_SO, PIO_SERCOM);
   ...
-  const uint32_t errorCode = can.begin (settings) ;
+  const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
   ...
 \end{lstlisting}}
 
@@ -972,7 +972,7 @@ You can change the default values by setting the \texttt{mTransmitBuffer0Size}, 
 { \small\begin{lstlisting}[language=c++]
 ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
 settings.mTransmitBuffer0Size = 30 ;
-const uint32_t errorCode = can.begin (settings) ;
+const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
 ...
 \end{lstlisting}}
 
@@ -1086,7 +1086,7 @@ By default, the driver receive buffer size is 32. You can change it by setting t
 { \small\begin{lstlisting}[language=c++]
 ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
 settings.mReceiveBufferSize = 100 ;
-const uint32_t errorCode = can.begin (settings) ;
+const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
 ...
 \end{lstlisting}}
 
@@ -1539,7 +1539,7 @@ This error occurs when the \texttt{mBitRateClosedToDesiredRate} property of the 
 void setup () {
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 1) ; // 1 bit/s !!!
   // Here, settings.mBitRateClosedToDesiredRate is false
-  const uint32_t errorCode = can.begin (settings) ;
+  const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
   // Here, errorCode contains ACAN2515::kCANBitConfigurationTooFarFromDesiredBitRate
 }
 \end{lstlisting}}
@@ -1617,7 +1617,7 @@ The \texttt{ACAN2515::begin} method you have called names the \texttt{inRXM0} an
 
 \sectionLabel{\texttt{ACAN2515Settings} class reference}{ACAN2515SettingsRef}
 
-{\bf Note. } The \texttt{ACAN2515Settings} class is not Arduino specific. You can compile it on your desktop computer with your favorite C++ compiler. In the \url{https://github.com/pierremolinaro/acan2515-dev} GitHub repository, a command line tool is defined for exploring all CAN bit rates from 1 bit/s and 20 Mbit/s for a 16 MHz quartz: 63810 bit rates are valid, and 29 are exact. It also check that computed CAN bit decompositions are all valid.
+{\bf Note. } The \texttt{ACAN2515Settings} class is not Arduino specific. You can compile it on your desktop computer with your favorite C++ compiler. In the \url{https://github.com/pierremolinaro/acan2515-dev} GitHub repository, a command line tool is defined for exploring all CAN bit rates from 1 bit/s and 20 Mbit/s for a 16 MHz quartz: 63810 bit rates are valid, and 29 are exact. It also checks that computed CAN bit decompositions are all consistent, even if they are too far from the desired baud rate.
 
 
 

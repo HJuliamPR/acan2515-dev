@@ -444,7 +444,7 @@ The \refFigure{}{figureStructureStationCAN} illustrates message flow for sending
   \item the \texttt{dispatchReceivedMessage} method if you have defined the reception filters that name a call-back function -- see \refSectionPage{UsingDispatchMethod}.
 \end{itemize}
 
-{\bf Sequentiality.} The \texttt{ACAN2515} driver and the configuration of the \texttt{MCP2515} controller can ensure sequentiality of data messages\footnote{Sequentiality means that if an user program calls \texttt{tryToSend} first for a message $M_1$ and then for a message $M_2$, the message $M_1$ will be always retrieved by \texttt{receive} or \texttt{dispatchReceivedMessage} before the message $M_2$.}, under some conditions. The driver ensures the sequentiality of the emissions, provided that you use only one transmit buffer: if an user program calls \texttt{tryToSend} first for a message $M_1$ specifying the $B_i$ buffer and then for a message $M_2$ specifying the same buffer, the driver ensures that $M_1$ will be sent on the CAN bus before $M_2$. However, if $M_2$ specifies an other buffer, there is no guarantee that $M_1$ will appear on the bus before $M_2$. In reception, the driver ensures sequentiality based on the reception filters: if a received message $M_1$ passes a given filter, and then a received message $M_2$ passes the same filter, then the messages are retrieved in this order by the \texttt{receive} or the \texttt{dispatchReceivedMessage} methods.
+{\bf Sequentiality.} The \texttt{ACAN2515} driver and the configuration of the \texttt{MCP2515} controller can ensure sequentiality of data messages\footnote{Sequentiality means that if an user program calls \texttt{tryToSend} first for a message $M_1$ and then for a message $M_2$, the message $M_1$ will be allways retrieved by \texttt{receive} or \texttt{dispatchReceivedMessage} before the message $M_2$.}, under some conditions. The driver ensures the sequentiality of the emissions, provided that you use only one transmit buffer: if an user program calls \texttt{tryToSend} first for a message $M_1$ specifying the $B_i$ buffer and then for a message $M_2$ specifying the same buffer, the driver ensures that $M_1$ will be sent on the CAN bus before $M_2$. However, if $M_2$ specifies an other buffer, there is no guarantee that $M_1$ will appear on the bus before $M_2$. In reception, the driver ensures sequentiality based on the reception filters: if a received message $M_1$ passes a given filter, and then a received message $M_2$ passes the same filter, then the messages are retrieved in this order by the \texttt{receive} or the \texttt{dispatchReceivedMessage} methods.
 
 
 
@@ -1003,9 +1003,9 @@ The \texttt{transmitBufferPeakCount} method has one argument, the index $i$ of a
 const uint32_t max = can.transmitBufferPeakCount (2) ; // Driver transmit buffer 0
 \end{lstlisting}}
 
-Il the transmit buffer is full when \texttt{tryToSend} is called, the return value of this call is \texttt{false}. In such case, the following calls of \texttt{transmitBufferPeakCount($i$)} will return \texttt{transmitBufferSize ($i$)+1}. 
+If the transmit buffer is full when \texttt{tryToSend} is called, the return value of this call is \texttt{false}. In such case, the following calls of \texttt{transmitBufferPeakCount($i$)} will return \texttt{transmitBufferSize ($i$)+1}. 
 
-So, when \texttt{transmitBufferPeakCount($i$} returns a value lower or equal to \texttt{transmitBufferSize ($i$)}, it means that calls to \texttt{tryToSend} have always returned \texttt{true}, and no overflow occurs on transmit buffer $i$.
+So, when \texttt{transmitBufferPeakCount($i$)} returns a value lower or equal to \texttt{transmitBufferSize ($i$)}, it means that calls to \texttt{tryToSend} have allways returned \texttt{true}, and no overflow occurs on transmit buffer $i$.
 
 
 
@@ -1633,7 +1633,7 @@ void setup () {
 }
 \end{lstlisting}}
 
-Of course, with a 16 MHz quartz, CAN bit computation always succeeds for classical bit rates: 1 Mbit/s, 500 kbit/s, 250 kbit/s, 125 kbit/s. But CAN bit computation can also succeed for some unusual bit rates, as 727 kbit/s. You can check the result by computing actual bit rate, and the distance from the desired bit rate:
+Of course, with a 16 MHz quartz, CAN bit computation allways succeeds for classical bit rates: 1 Mbit/s, 500 kbit/s, 250 kbit/s, 125 kbit/s. But CAN bit computation can also succeed for some unusual bit rates, as 727 kbit/s. You can check the result by computing actual bit rate, and the distance from the desired bit rate:
 { \small\begin{lstlisting}[language=c++]
 const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 void setup () {
@@ -1685,7 +1685,7 @@ void setup () {
 \end{lstlisting}}
 
 
-In any way, the bit rate computation always gives a consistent result, resulting an actual bit rate closest from the desired bit rate. For example:
+In any way, the bit rate computation allways gives a consistent result, resulting an actual bit rate closest from the desired bit rate. For example:
 { \small\begin{lstlisting}[language=c++]
 const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 void setup () {
@@ -1737,7 +1737,7 @@ void setup () {
 The \texttt{samplePointFromBitStart} method returns sample point, expressed in per-cent of the bit duration from the beginning of the bit.
 
 
-Note the computation may calculate a bit decomposition too far from the desired bit rate, but it is always consistent. You can check this by calling the \texttt{CANBitSettingConsistency} method.
+Note the computation may calculate a bit decomposition too far from the desired bit rate, but it is allways consistent. You can check this by calling the \texttt{CANBitSettingConsistency} method.
 
 You can change the property values for adapting to the particularities of your CAN network propagation time. By example, you can increment the \texttt{mPhaseSegment1} value, and decrement the \texttt{mPhaseSegment2} value in order to sample the \texttt{CAN Rx} pin later.
 
@@ -1760,7 +1760,7 @@ void setup () {
 }
 \end{lstlisting}}
 
-Be aware to always respect CAN bit timing consistency! The constraints are:
+Be aware to allways respect CAN bit timing consistency! The constraints are:
 
 \begin{align*}
 1 & \leqslant \texttt{mBitRatePrescaler} \leqslant 64 \\

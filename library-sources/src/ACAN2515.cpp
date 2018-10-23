@@ -171,10 +171,12 @@ bool ACAN2515::tryToSend (const CANMessage & inMessage) {
   if (idx > 2) {
     idx = 0 ;
   }
-//---
-  #if (defined (__MK64FX512__) || defined (__MK66FX1M0__)) && (TEENSYDUINO<=144)
+//--- Workaround: the Teensy 3.5 / 3.6 "SPI.usingInterrupt" bug
+//    https://github.com/PaulStoffregen/SPI/issues/35
+  #if (defined (__MK64FX512__) || defined (__MK66FX1M0__))
     noInterrupts () ;
   #endif
+ //---
   mSPI.beginTransaction (mSPISettings) ;
     bool ok = mTXBIsFree [idx] ;
     if (ok) { // Transmit buffer and TXB are both free: transmit immediatly
@@ -184,7 +186,7 @@ bool ACAN2515::tryToSend (const CANMessage & inMessage) {
       ok = mTransmitBuffer [idx].append (inMessage) ;
     }
   mSPI.endTransaction () ;
-  #if (defined (__MK64FX512__) || defined (__MK66FX1M0__)) && (TEENSYDUINO<=144)
+  #if (defined (__MK64FX512__) || defined (__MK66FX1M0__))
     interrupts () ;
   #endif
   return ok ;

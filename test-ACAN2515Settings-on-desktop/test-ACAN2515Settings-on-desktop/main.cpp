@@ -24,7 +24,7 @@ static const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ;
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 static const uint32_t firstTestedBitRate = 1 ; // 1 bit/s
-static const uint32_t lastTestedBitRate = 20 * 1000 * 1000 ; // 20 Mbit/s
+static const uint32_t lastTestedBitRate = 1000 * 1000 ; // 1 Mbit/s
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
@@ -132,9 +132,6 @@ static void allExactSettings (Set <uint32_t> & ioExactSettingSet) {
       ioExactSettingSet.insert (br) ;
     }
   }
-//  for (uint32_t i=0 ; i<ioExactSettingSet.count() ; i++) {
-//    cout << "  " << ioExactSettingSet.valueAtIndex (i) << " bit/s" << endl ;
-//  }
   cout << "  Completed, " << ioExactSettingSet.count () << " exact settings" << endl ;
 }
 
@@ -145,14 +142,11 @@ static void exhaustiveSearchOfAllExactSettings (Set <uint32_t> & ioExactSettingS
     for (uint32_t TQCount = 5 ; TQCount <= 25 ; TQCount ++) {
       const uint32_t bitRate = QUARTZ_FREQUENCY / 2 / brp / TQCount ;
       const bool exact = (bitRate * brp * TQCount) == (QUARTZ_FREQUENCY / 2) ;
-      if (exact) {
+      if (exact && (bitRate <= 1000 * 1000)) {
         ioExactSettingSet.insert (bitRate) ;
       }
     }
   }
-//  for (uint32_t i=0 ; i<ioExactSettingSet.count() ; i++) {
-//    cout << "  " << ioExactSettingSet.valueAtIndex (i) << " bit/s" << endl ;
-//  }
   cout << "  Exhaustive search completed, " << ioExactSettingSet.count () << " exact settings" << endl ;
 }
 
@@ -188,7 +182,12 @@ int main (int /* argc */, const char * /* argv */ []) {
     exit (1) ;
   }else{
     for (size_t i=0 ; i<exactSettingSet.count () ; i++) {
-      cout << "  " << exactSettingSet.valueAtIndex (i) << " bit/s" << endl ;
+      const uint32_t bitRate = exactSettingSet.valueAtIndex (i) ;
+      if ((bitRate % 1000) == 0) {
+        cout << "  " << (bitRate / 1000) << " kbit/s" << endl ;
+      }else{
+        cout << "  " << bitRate << " bit/s" << endl ;
+      }
     }
   }
   return 0;

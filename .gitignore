@@ -3,7 +3,7 @@
 
 ## Other files
 *.pyc
-test-ACANSettings-on-desktop/build/
+test-ACAN2515Settings-on-desktop/build/
 */*.xcodeproj/project.xcworkspace
 */*.xcodeproj/xcuserdata
 build-path

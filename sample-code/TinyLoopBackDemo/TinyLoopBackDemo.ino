@@ -22,7 +22,7 @@ static const byte MCP2515_INT =  3 ; // INT output of MCP2515 (adapt to your des
 //  MCP2515 Driver object
 //——————————————————————————————————————————————————————————————————————————————
 
-ACAN2515 can (MCP2515_CS, SPI, MCP2515_INT) ;
+ACAN2515Tiny can (MCP2515_CS, MCP2515_INT) ;
 
 //——————————————————————————————————————————————————————————————————————————————
 //  MCP2515 Quartz: adapt to your design

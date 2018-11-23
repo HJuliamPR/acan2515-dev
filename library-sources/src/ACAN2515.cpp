@@ -60,7 +60,7 @@ mINT (inINT),
 mReceiveBuffer (),
 mCallBackFunctionArray (),
 mTXBIsFree () {
-  for (uint32_t i=0 ; i<6 ; i++) {
+  for (uint8_t i=0 ; i<6 ; i++) {
     mCallBackFunctionArray [i] = NULL ;
   }
 }
@@ -187,7 +187,7 @@ bool ACAN2515::dispatchReceivedMessage (const tFilterMatchCallBack inFilterMatch
   CANMessage receivedMessage ;
   const bool hasReceived = receive (receivedMessage) ;
   if (hasReceived) {
-    const uint32_t filterIndex = receivedMessage.idx ;
+    const uint8_t filterIndex = receivedMessage.idx ;
     if (NULL != inFilterMatchCallBack) {
       inFilterMatchCallBack (filterIndex) ;
     }
@@ -296,7 +296,7 @@ uint16_t ACAN2515::internalBeginOperation (const ACAN2515Settings & inSettings,
     setupMaskRegister (inRXM0, RXM0SIDH_REGISTER) ;
     setupMaskRegister (inRXM1, RXM1SIDH_REGISTER) ;
     if (inAcceptanceFilterCount > 0) {
-      uint32_t idx = 0 ;
+      uint8_t idx = 0 ;
       while (idx < inAcceptanceFilterCount) {
         setupMaskRegister (inAcceptanceFilters [idx].mMask, RXFSIDH_REGISTER [idx]) ;
         mCallBackFunctionArray [idx] = inAcceptanceFilters [idx].mCallBack ;
@@ -677,14 +677,6 @@ ACAN2515Mask extended2515Mask (const uint32_t inIdentifier) {
   result.mSIDL = (uint8_t) (((inIdentifier >> 16) & 0x03) | ((inIdentifier >> 13) & 0xE0)) ;
   result.mEID8 = (uint8_t) (inIdentifier >> 8) ;
   result.mEID0 = (uint8_t) inIdentifier ;
-//   Serial.print ("Mask ") ;
-//   Serial.print (result.mSIDH, HEX) ;
-//   Serial.print (" ") ;
-//   Serial.print (result.mSIDL, HEX) ;
-//   Serial.print (" ") ;
-//   Serial.print (result.mEID8, HEX) ;
-//   Serial.print (" ") ;
-//   Serial.println (result.mEID0, HEX) ;
   return result ;
 }
 
@@ -709,14 +701,6 @@ ACAN2515Mask extended2515Filter (const uint32_t inIdentifier) {
   result.mSIDL = (uint8_t) (((inIdentifier >> 16) & 0x03) | ((inIdentifier >> 13) & 0xE0)) | 0x08 ;
   result.mEID8 = (uint8_t) (inIdentifier >> 8) ;
   result.mEID0 = (uint8_t) inIdentifier ;
-//   Serial.print ("Acceptance ") ;
-//   Serial.print (result.mSIDH, HEX) ;
-//   Serial.print (" ") ;
-//   Serial.print (result.mSIDL, HEX) ;
-//   Serial.print (" ") ;
-//   Serial.print (result.mEID8, HEX) ;
-//   Serial.print (" ") ;
-//   Serial.println (result.mEID0, HEX) ;
   return result ;
 }
 

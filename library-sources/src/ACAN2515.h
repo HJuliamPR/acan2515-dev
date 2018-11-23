@@ -9,7 +9,7 @@
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
-#include <ACANBuffer.h>
+#include <ACANBufferTemplate.h>
 #include <ACANBufferTiny.h>
 #include <ACAN2515Settings.h>
 #include <SPI.h>
@@ -66,8 +66,8 @@ class ACAN2515AcceptanceFilter {
 class ACAN2515 {
 //--- Constructor: using hardware SPI
   public: ACAN2515 (const uint8_t inCS,  // CS input of MCP2515
-                         SPIClass & inSPI, // Hardware SPI object
-                         const uint8_t inINT) ; // INT output of MCP2515
+                    SPIClass & inSPI, // Hardware SPI object
+                    const uint8_t inINT) ; // INT output of MCP2515
 
 
 //--- Initialisation: returns 0 if ok, otherwise see error codes below
@@ -88,12 +88,12 @@ class ACAN2515 {
                           const uint8_t inAcceptanceFilterCount) ;
 
 //--- Error codes returned by begin
-  public: static const uint16_t kNoMCP2515                = 1 <<  0 ;
-  public: static const uint16_t kTooFarFromDesiredBitRate = 1 <<  1 ;
+  public: static const uint16_t kNoMCP2515                   = 1 <<  0 ;
+  public: static const uint16_t kTooFarFromDesiredBitRate    = 1 <<  1 ;
   public: static const uint16_t kInconsistentBitRateSettings = 1 <<  2 ;
-  public: static const uint16_t kINTPinIsNotAnInterrupt   = 1 <<  3 ;
-  public: static const uint16_t kISRIsNull                = 1 <<  4 ;
-  public: static const uint16_t kRequestedModeTimeOut     = 1 <<  5 ;
+  public: static const uint16_t kINTPinIsNotAnInterrupt      = 1 <<  3 ;
+  public: static const uint16_t kISRIsNull                   = 1 <<  4 ;
+  public: static const uint16_t kRequestedModeTimeOut        = 1 <<  5 ;
   public: static const uint16_t kAcceptanceFilterArrayIsNULL = 1 << 6 ;
   public: static const uint16_t kOneFilterMaskRequiresOneOrTwoAcceptanceFilters = 1 << 7 ;
   public: static const uint16_t kTwoFilterMasksRequireThreeToSixAcceptanceFilters = 1 << 8 ;
@@ -110,13 +110,13 @@ class ACAN2515 {
   private: void handleRXBInterrupt (void) ;
 
  //--- Properties
-  protected: SPIClass & mSPI ;
-  protected: const SPISettings mSPISettings ;
-  protected: const uint8_t mCS ;
-  protected: const uint8_t mINT ;
+  private: SPIClass & mSPI ;
+  private: const SPISettings mSPISettings ;
+  private: const uint8_t mCS ;
+  private: const uint8_t mINT ;
 
 //--- Receive buffer
-  private: ACANBuffer mReceiveBuffer ;
+  private: ACANBufferTemplate <uint16_t> mReceiveBuffer ;
 
 //--- Call back function array
   private: ACANCallBackRoutine mCallBackFunctionArray [6] ;
@@ -125,18 +125,18 @@ class ACAN2515 {
   public: bool tryToSend (const CANMessage & inMessage) ;
 
 //--- Driver transmit buffer
-  private: ACANBuffer mTransmitBuffer [3] ;
+  private: ACANBufferTemplate <uint16_t> mTransmitBuffer [3] ;
   private: bool mTXBIsFree [3] ;
 
-  public: inline uint32_t transmitBufferSize (const uint32_t inIndex) const {
+  public: inline uint16_t transmitBufferSize (const uint8_t inIndex) const {
     return mTransmitBuffer [inIndex].size () ;
   }
 
-  public: inline uint32_t transmitBufferCount (const uint32_t inIndex) const {
+  public: inline uint16_t transmitBufferCount (const uint8_t inIndex) const {
     return mTransmitBuffer [inIndex].count () ;
   }
 
-  public: inline uint32_t transmitBufferPeakCount (const uint32_t inIndex) const {
+  public: inline uint16_t transmitBufferPeakCount (const uint8_t inIndex) const {
     return mTransmitBuffer [inIndex].peakCount () ;
   }
   private: void internalSendMessage (const CANMessage & inFrame, const uint8_t inTXB) ;
@@ -155,8 +155,8 @@ class ACAN2515 {
   private: uint16_t internalBeginOperation (const ACAN2515Settings & inSettings,
                                             const ACAN2515Mask inRXM0,
                                             const ACAN2515Mask inRXM1,
-                                            const ACAN2515AcceptanceFilter inAcceptanceFilters [] = NULL,
-                                            const uint8_t inAcceptanceFilterCount = 0) ;
+                                            const ACAN2515AcceptanceFilter inAcceptanceFilters [],
+                                            const uint8_t inAcceptanceFilterCount) ;
 
   private: void write2515Register (const uint8_t inRegister, const uint8_t inValue) ;
   private: uint8_t read2515Register (const uint8_t inRegister) ;

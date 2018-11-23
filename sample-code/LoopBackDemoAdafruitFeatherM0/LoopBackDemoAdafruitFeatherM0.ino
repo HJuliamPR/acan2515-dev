@@ -1,5 +1,5 @@
 //——————————————————————————————————————————————————————————————————————————————
-//  ACAN2515 Demo in loopback mode, using hardware SPI, with an external interrupt
+//  ACAN2515 Demo in loopback mode for Adafruit Feather M0
 //——————————————————————————————————————————————————————————————————————————————
 
 #include <ACAN2515.h>

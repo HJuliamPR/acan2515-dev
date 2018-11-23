@@ -63,7 +63,7 @@ compileArduinoSketch (scriptDir, "LoopBackUsingFilters")
 #--- Compile latex doc
 runCommand ([scriptDir + "/documentation-in-latex/-build.command"])
 #--- Copy files in the distribution directory
-distributionDirectory = scriptDir + "/../GITHUB/acan2515"
+distributionDirectory = scriptDir + "/../releases/acan2515"
 if not os.path.exists (distributionDirectory + "/extras"):
   os.makedirs (distributionDirectory + "/extras")
 copyFile (scriptDir + "/documentation-in-latex/acan2515.pdf", distributionDirectory + "/extras/")

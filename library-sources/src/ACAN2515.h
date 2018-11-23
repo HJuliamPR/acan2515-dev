@@ -9,8 +9,7 @@
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
-#include <ACANBufferTemplate.h>
-#include <ACANBufferTiny.h>
+#include <ACANBuffer16.h>
 #include <ACAN2515Settings.h>
 #include <SPI.h>
 
@@ -116,7 +115,7 @@ class ACAN2515 {
   private: const uint8_t mINT ;
 
 //--- Receive buffer
-  private: ACANBufferTemplate <uint16_t> mReceiveBuffer ;
+  private: ACANBuffer16 mReceiveBuffer ;
 
 //--- Call back function array
   private: ACANCallBackRoutine mCallBackFunctionArray [6] ;
@@ -125,7 +124,7 @@ class ACAN2515 {
   public: bool tryToSend (const CANMessage & inMessage) ;
 
 //--- Driver transmit buffer
-  private: ACANBufferTemplate <uint16_t> mTransmitBuffer [3] ;
+  private: ACANBuffer16 mTransmitBuffer [3] ;
   private: bool mTXBIsFree [3] ;
 
   public: inline uint16_t transmitBufferSize (const uint8_t inIndex) const {
@@ -172,117 +171,6 @@ class ACAN2515 {
 //--- No Copy
   private: ACAN2515 (const ACAN2515 &) ;
   private: ACAN2515 & operator = (const ACAN2515 &) ;
-} ;
-
-//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
-
-class ACAN2515Tiny {
-//--- Constructor: using hardware SPI
-  public: ACAN2515Tiny (const uint8_t inCS,  // CS input of MCP2515
-                        const uint8_t inINT) ; // INT output of MCP2515
-
-
-//--- Initialisation: returns 0 if ok, otherwise see error codes below
-  public: uint16_t begin (const ACAN2515Settings & inSettings,
-                          void (* inInterruptServiceRoutine) (void)) ;
-
-  public: uint16_t begin (const ACAN2515Settings & inSettings,
-                          void (* inInterruptServiceRoutine) (void),
-                          const ACAN2515Mask inRXM0,
-                          const ACAN2515AcceptanceFilter inAcceptanceFilters [],
-                          const uint8_t inAcceptanceFilterCount) ;
-
-  public: uint16_t begin (const ACAN2515Settings & inSettings,
-                          void (* inInterruptServiceRoutine) (void),
-                          const ACAN2515Mask inRXM0,
-                          const ACAN2515Mask inRXM1,
-                          const ACAN2515AcceptanceFilter inAcceptanceFilters [],
-                          const uint8_t inAcceptanceFilterCount) ;
-
-//--- Error codes returned by begin
-  public: static const uint16_t kNoMCP2515                = 1 <<  0 ;
-  public: static const uint16_t kTooFarFromDesiredBitRate = 1 <<  1 ;
-  public: static const uint16_t kInconsistentBitRateSettings = 1 <<  2 ;
-  public: static const uint16_t kINTPinIsNotAnInterrupt   = 1 <<  3 ;
-  public: static const uint16_t kISRIsNull                = 1 <<  4 ;
-  public: static const uint16_t kRequestedModeTimeOut     = 1 <<  5 ;
-  public: static const uint16_t kAcceptanceFilterArrayIsNULL = 1 << 6 ;
-  public: static const uint16_t kOneFilterMaskRequiresOneOrTwoAcceptanceFilters = 1 << 7 ;
-  public: static const uint16_t kTwoFilterMasksRequireThreeToSixAcceptanceFilters = 1 << 8 ;
-
-//--- Receiving messages
-  public: bool available (void) ;
-  public: bool receive (CANMessage & outFrame) ;
-  public: typedef void (*tFilterMatchCallBack) (const uint8_t inFilterIndex) ;
-  public: bool dispatchReceivedMessage (const tFilterMatchCallBack inFilterMatchCallBack = NULL) ;
-
-//--- Transmitting messages
-  public: bool tryToSend (const CANMessage & inMessage) ;
-
-//--- Handling messages to send and receiving messages
-  public: void isr (void) ;
-  private: void handleTXBInterrupt (const uint8_t inTXB) ;
-  private: void handleRXBInterrupt (void) ;
-
- //--- Properties
-  private: const SPISettings mSPISettings ;
-  private: const uint8_t mCS ;
-  private: const uint8_t mINT ;
-
-//--- Receive buffer
-  private: ACANBufferTiny mReceiveBuffer ;
-
-//--- Call back function array
-  private: ACANCallBackRoutine mCallBackFunctionArray [6] ;
-
-//--- Driver transmit buffer
-  private: ACANBufferTiny mTransmitBuffer [3] ;
-  private: bool mTXBIsFree [3] ;
-  private: void internalSendMessage (const CANMessage & inFrame, const uint8_t inTXB) ;
-
-  public: inline uint32_t transmitBufferSize (const uint32_t inIndex) const {
-    return mTransmitBuffer [inIndex].size () ;
-  }
-
-  public: inline uint32_t transmitBufferCount (const uint32_t inIndex) const {
-    return mTransmitBuffer [inIndex].count () ;
-  }
-
-  public: inline uint32_t transmitBufferPeakCount (const uint32_t inIndex) const {
-    return mTransmitBuffer [inIndex].peakCount () ;
-  }
-
-//--- Private methods
-  private: inline void select (void) { digitalWrite (mCS, LOW) ; }
-  private: inline void unselect (void) { digitalWrite (mCS, HIGH) ; }
-
-  private: uint16_t beginWithoutFilterCheck (const ACAN2515Settings & inSettings,
-                                             void (* inInterruptServiceRoutine) (void),
-                                             const ACAN2515Mask inRXM0,
-                                             const ACAN2515Mask inRXM1,
-                                             const ACAN2515AcceptanceFilter inAcceptanceFilters [],
-                                             const uint8_t inAcceptanceFilterCount) ;
-
-  private: uint16_t internalBeginOperation (const ACAN2515Settings & inSettings,
-                                            const ACAN2515Mask inRXM0,
-                                            const ACAN2515Mask inRXM1,
-                                            const ACAN2515AcceptanceFilter inAcceptanceFilters [] = NULL,
-                                            const uint8_t inAcceptanceFilterCount = 0) ;
-
-  private: void write2515Register (const uint8_t inRegister, const uint8_t inValue) ;
-  private: uint8_t read2515Register (const uint8_t inRegister) ;
-  private: uint8_t read2515Status (void) ;
-  private: uint8_t read2515RxStatus (void) ;
-  private: void bitModify2515Register (const uint8_t inRegister, const uint8_t inMask, const uint8_t inData) ;
-  private: void setupMaskRegister (const ACAN2515Mask inMask, const uint8_t inRegister) ;
-
-//--- MCP2515 controller state
-  public: uint8_t receiveErrorCounter (void) ;
-  public: uint8_t transmitErrorCounter (void) ;
-
-//--- No Copy
-  private: ACAN2515Tiny (const ACAN2515Tiny &) ;
-  private: ACAN2515Tiny & operator = (const ACAN2515Tiny &) ;
 } ;
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————

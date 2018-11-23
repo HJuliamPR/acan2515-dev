@@ -305,7 +305,7 @@
 %                                                                                                                       *
 %-----------------------------------------------------------------------------------------------------------------------*
 
-\title{\bf \Huge{ACAN2515 library for Arduino\\Version 1.0.3}}
+\title{\bf \Huge{ACAN2515 library for Arduino\\Version 1.0.4}}
 \author{Pierre Molinaro}
 \date {\today}
 
@@ -332,8 +332,11 @@
     \textbf{Version} & \textbf{Date} & \textbf{Comment}\\
     1.0.0 & October 12, 2018 & Initial release \\
     1.0.1 & October 23, 2018 & Workaround external interrupt masking for Teensy 3.5 / 3.6\\
-          &          & Use of a lambda function for interrupt service routine \\
+          &                  & Use of a lambda function for interrupt service routine \\
     1.0.3 & November 3, 2018 & Correct setting of \texttt{rtr} and \texttt{ext} properties on message receive (thanks to Arjan-Woltjer for having fixed this bug, \url{https://github.com/pierremolinaro/acan2515/pull/1}) \\
+    1.0.4 & November 23, 2018 & BugFix: transmit buffer \#2 size setting \\
+          &                   & Transmit and send buffers properties are now \texttt{uint\_16} (instead of \texttt{uint\_32}), for saving memory \\
+          &                   & \texttt{ACAN2515::begin} now returns an \texttt{uint\_16} (instead of \texttt{uint\_32})
   \end{tabular}
 \end{center}
 
@@ -483,15 +486,6 @@ ACAN2515 can (MCP2515_CS, SPI, MCP2515_INT) ;
 \end{lstlisting}}
 Instanciation of the \texttt{ACAN2515} library, declaration and initialization of the \texttt{can} object that implements the driver. The constructor names: the number of the pin connected to the $\overline{\texttt{CS}}$ pin, the \texttt{SPI} object (you can use \texttt{SPI1}, \texttt{SPI2}, …), the number of the pin connected to the $\overline{\texttt{INT}}$ pin.
 
-%{ \small\begin{lstlisting}[language=c++]
-%void canISR (void) {
-%  can.isr () ;
-%}
-%\end{lstlisting}}
-%
-%The driver requires an \emph{interrupt service routine}: one instruction is required, calling the \texttt{isr} method of the driver object.
-
-
 
 
 { \small\begin{lstlisting}[language=c++]
@@ -550,7 +544,7 @@ This is the second step. You can override the values of the properties of \textt
 
 
 { \small\begin{lstlisting}[language=c++]
-  const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
+  const uint16_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
 \end{lstlisting}}
 This is the third step, configuration of the \texttt{can} driver with \texttt{settings} values. The driver is configured for being able to send any (standard / extended, data / remote) frame, and to receive all (standard / extended, data / remote) frames. If you want to define reception filters, see \refSectionPage{acceptanceFilters}. The second argument is the \emph{interrupt service routine}, and is defined by a C++ lambda expression\footnote{\url{https://en.cppreference.com/w/cpp/language/lambda}}. See \refSubsectionPage{isrExplicit} for using a function instead.
 
@@ -776,7 +770,7 @@ void setup () {
   SPI.setSCK (MCP2515_SCK) ;
   SPI.begin () ;
   ...
-  const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
+  const uint16_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
   ...
 \end{lstlisting}}
 
@@ -801,7 +795,7 @@ void setup () {
   SPI.setSCK (MCP2515_SCK) ;
   SPI.begin () ;
   ...
-  const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
+  const uint16_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
   ...
 \end{lstlisting}}
 
@@ -879,7 +873,7 @@ void setup () {
   pinPeripheral (MCP2515_SCK, PIO_SERCOM);
   pinPeripheral (MCP2515_SO, PIO_SERCOM);
   ...
-  const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
+  const uint16_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
   ...
 \end{lstlisting}}
 
@@ -973,7 +967,7 @@ You can change the default values by setting the \texttt{mTransmitBuffer0Size}, 
 { \small\begin{lstlisting}[language=c++]
 ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
 settings.mTransmitBuffer0Size = 30 ;
-const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
+const uint16_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
 ...
 \end{lstlisting}}
 
@@ -1087,7 +1081,7 @@ By default, the driver receive buffer size is 32. You can change it by setting t
 { \small\begin{lstlisting}[language=c++]
 ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
 settings.mReceiveBufferSize = 100 ;
-const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
+const uint16_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
 ...
 \end{lstlisting}}
 
@@ -1190,7 +1184,7 @@ For dealing with all situations, the \texttt{ACAN2515::begin} method accepts thr
 {\bf No filter.}
 { \small\begin{lstlisting}[language=c++]
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
-  const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
+  const uint16_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
 \end{lstlisting}}
 No filter is provided, \texttt{RXM0} and \texttt{RXM1} are set to $0$, enabling the acceptance of all messages by \texttt{RXB0}.
 
@@ -1203,7 +1197,7 @@ No filter is provided, \texttt{RXM0} and \texttt{RXM1} are set to $0$, enabling 
   const ACAN2515AcceptanceFilter filter [] = {
     {extended2515Filter (0x12345678), receive0} // RXF0
   } ;
-  const uint32_t errorCode = can.begin (settings,
+  const uint16_t errorCode = can.begin (settings,
                                         [] { can.isr () ; },
                                         rxm0, // Value set to RXM0 register
                                         filter, // The filter array
@@ -1229,7 +1223,7 @@ The definition of a filter is associated with a call back function -- here \text
     {extended2515Filter (0x12345678), receive0}, // RXF0
     {extended2515Filter (0x18765432), receive1}  // RXF1
   } ;
-  const uint32_t errorCode = can.begin (settings,
+  const uint16_t errorCode = can.begin (settings,
                                         [] { can.isr () ; },
                                         rxm0, // Value set to RXM0 register
                                         filters, // The filter array
@@ -1258,7 +1252,7 @@ Here, two types of message are accepted, extended (data or remote) frames with a
     {standard2515Filter (0x567, 0, 0), receive2},// RXF2
     {standard2515Filter (0x123, 0, 0), receive3} // RXF3
   } ;
-  const uint32_t errorCode = can.begin (settings,
+  const uint16_t errorCode = can.begin (settings,
                                         [] { can.isr () ; },
                                         rxm0, // Value set to RXM0 register
                                         rxm1, // Value set to RXM1 register
@@ -1288,7 +1282,7 @@ Four types of message are accepted, extended (data or remote) frames with an ide
     {standard2515Filter (0x777, 0, 0), receive4},// RXF4
     {standard2515Filter (0x3AB, 0, 0), receive5} // RXF5
   } ;
-  const uint32_t errorCode = can.begin (settings,
+  const uint16_t errorCode = can.begin (settings,
                                         [] { can.isr () ; },
                                         rxm0, // Value set to RXM0 register
                                         rxm1, // Value set to RXM1 register
@@ -1484,7 +1478,7 @@ uint32_t ACAN2515::begin (const ACAN2515Settings & inSettings,
 
 In this document, the \emph{interrupt service routine} is defined by a lambda expression:
 { \small\begin{lstlisting}[language=c++]
-  const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
+  const uint16_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
 \end{lstlisting}}
 
 Instead of a lambda expression, you are free to define the \emph{interrupt service routine} as a function:
@@ -1496,7 +1490,7 @@ void canISR () {
 
 And you pass \texttt{canISR} as argument to the \texttt{begin} method:
 { \small\begin{lstlisting}[language=c++]
-  const uint32_t errorCode = can.begin (settings, canISR) ;
+  const uint16_t errorCode = can.begin (settings, canISR) ;
 \end{lstlisting}}
 
 
@@ -1540,7 +1534,7 @@ This error occurs when the \texttt{mBitRateClosedToDesiredRate} property of the 
 void setup () {
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 1) ; // 1 bit/s !!!
   // Here, settings.mBitRateClosedToDesiredRate is false
-  const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
+  const uint16_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
   // Here, errorCode contains ACAN2515::kCANBitConfigurationTooFarFromDesiredBitRate
 }
 \end{lstlisting}}

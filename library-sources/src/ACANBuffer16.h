@@ -1,12 +1,15 @@
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
-// A CAN driver for MCP2515
+// A CAN driver for MCP2517FD CAN Controller in CAN 2.0B mode
 // by Pierre Molinaro
+// https://github.com/pierremolinaro/acan2517
+//
+// This file is common with the acan2515 library
 // https://github.com/pierremolinaro/acan2515
 //
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
-#ifndef ACAN_TINY_BUFFER_CLASS_DEFINED
-#define ACAN_TINY_BUFFER_CLASS_DEFINED
+#ifndef ACAN_BUFFER_16_CLASS_DEFINED
+#define ACAN_BUFFER_16_CLASS_DEFINED
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
@@ -14,13 +17,13 @@
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
-class ACANBufferTiny {
+class ACANBuffer16 {
 
 //······················································································································
 // Default constructor
 //······················································································································
 
-  public: ACANBufferTiny (void)  :
+  public: ACANBuffer16 (void)  :
   mBuffer (NULL),
   mSize (0),
   mReadIndex (0),
@@ -33,7 +36,7 @@ class ACANBufferTiny {
 // Destructor
 //······················································································································
 
-  public: ~ ACANBufferTiny (void) {
+  public: ~ ACANBuffer16 (void) {
     delete [] mBuffer ;
   }
 
@@ -42,29 +45,29 @@ class ACANBufferTiny {
 //······················································································································
 
   private: CANMessage * mBuffer ;
-  private: uint8_t mSize ;
-  private: uint8_t mReadIndex ;
-//  private: uint8_t mWriteIndex ;
-  private: uint8_t mCount ;
-  private: uint8_t mPeakCount ; // > mSize if overflow did occur
+  private: uint16_t mSize ;
+  private: uint16_t mReadIndex ;
+//  private: uint16_t mWriteIndex ;
+  private: uint16_t mCount ;
+  private: uint16_t mPeakCount ; // > mSize if overflow did occur
 
 //······················································································································
 // Accessors
 //······················································································································
 
-  public: inline uint8_t size (void) const { return mSize ; }
-  public: inline uint8_t count (void) const { return mCount ; }
-  public: inline uint8_t peakCount (void) const { return mPeakCount ; }
+  public: inline uint16_t size (void) const { return mSize ; }
+  public: inline uint16_t count (void) const { return mCount ; }
+  public: inline uint16_t peakCount (void) const { return mPeakCount ; }
 
 //······················································································································
 // initWithSize
 //······················································································································
 
-  public: void initWithSize (const uint8_t inSize) {
+  public: void initWithSize (const uint16_t inSize) {
     mBuffer = new CANMessage [inSize] ;
     mSize = inSize ;
     mReadIndex = 0 ;
-//    mWriteIndex = 0 ;
+ //   mWriteIndex = 0 ;
     mCount = 0 ;
     mPeakCount = 0 ;
   }
@@ -86,7 +89,7 @@ class ACANBufferTiny {
 //       if (mWriteIndex == mSize) {
 //         mWriteIndex = 0 ;
 //       }
-      mCount += 1 ;
+      mCount ++ ;
       if (mPeakCount < mCount) {
         mPeakCount = mCount ;
       }
@@ -115,11 +118,10 @@ class ACANBufferTiny {
 // No copy
 //······················································································································
 
-  private: ACANBufferTiny (const ACANBufferTiny &) ;
-  private: ACANBufferTiny & operator = (const ACANBufferTiny &) ;
+  private: ACANBuffer16 (const ACANBuffer16 &) ;
+  private: ACANBuffer16 & operator = (const ACANBuffer16 &) ;
 } ;
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 #endif
-

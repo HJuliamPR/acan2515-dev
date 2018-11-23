@@ -515,7 +515,7 @@ void ACAN2515::internalSendMessage (const CANMessage & inFrame, const uint8_t in
   mSPI.transfer (v) ;
 //--- Send data
   if (!inFrame.rtr) {
-    for (unsigned i=0 ; i<inFrame.len ; i++) {
+    for (uint8_t i=0 ; i<inFrame.len ; i++) {
       mSPI.transfer (inFrame.data [i]) ;
     }
   }

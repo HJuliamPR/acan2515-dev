@@ -58,8 +58,18 @@ os.chdir (scriptDir)
 #--- Compile sketches
 compileArduinoSketch (scriptDir, "TestWithACAN")
 compileArduinoSketch (scriptDir, "LoopBackDemo")
+compileArduinoSketch (scriptDir, "LoopBackDemoBitRateSettings")
 compileArduinoSketch (scriptDir, "LoopBackFilterDataByte")
 compileArduinoSketch (scriptDir, "LoopBackUsingFilters")
+#--- Compile OSX code
+os.chdir (scriptDir + "/test-ACAN2515Settings-on-desktop")
+runCommand ([
+  "xcodebuild",
+  "-alltargets",
+  "-configuration", "Default"
+])
+runCommand (["build/Release/test-ACAN2515Settings-on-desktop"])
+os.chdir (scriptDir)
 #--- Compile latex doc
 runCommand ([scriptDir + "/documentation-in-latex/-build.command"])
 #--- Copy files in the distribution directory

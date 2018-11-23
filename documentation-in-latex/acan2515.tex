@@ -335,8 +335,9 @@
           &                  & Use of a lambda function for interrupt service routine \\
     1.0.3 & November 3, 2018 & Correct setting of \texttt{rtr} and \texttt{ext} properties on message receive (thanks to Arjan-Woltjer for having fixed this bug, \url{https://github.com/pierremolinaro/acan2515/pull/1}) \\
     1.0.4 & November 23, 2018 & BugFix: transmit buffer \#2 size setting \\
-          &                   & Transmit and send buffers properties are now \texttt{uint\_16} (instead of \texttt{uint\_32}), for saving memory \\
-          &                   & \texttt{ACAN2515::begin} now returns an \texttt{uint\_16} (instead of \texttt{uint\_32})
+          &                   & Transmit and send buffers properties are now \texttt{uint16\_t} (instead of \texttt{uint32\_t}), for saving memory \\
+          &                   & \texttt{ACAN2515::begin} now returns an \texttt{uint16\_t} (instead of \texttt{uint32\_t})\\
+          &                   & New \texttt{ACAN2515Settings} constructor with explicit bit rate settings (see \refSubsectionPage{explicitCANbitSettings} and \texttt{LoopBackDemoBitRateSettings} demo sketch)
   \end{tabular}
 \end{center}
 
@@ -1616,7 +1617,7 @@ The \texttt{ACAN2515::begin} method you have called names the \texttt{inRXM0} an
 
 
 
-\subsectionLabel{The \texttt{ACAN2515Settings} constructor: computation of the CAN bit settings}{CANbitSettings}
+\subsectionLabel{First \texttt{ACAN2515Settings} constructor: computation of the CAN bit settings}{CANbitSettings}
 
 The constructor of the \texttt{ACAN2515Settings} has two mandatory arguments: the quartz frequency, and the desired bit rate. It tries to compute the CAN bit settings for this bit rate. If it succeeds, the constructed object has its \texttt{mBitRateClosedToDesiredRate} property set to \texttt{true}, otherwise it is set to \texttt{false}. For example:
 { \small\begin{lstlisting}[language=c++]
@@ -1748,7 +1749,7 @@ void setup () {
   Serial.print ("Sample Point: ") ;
   Serial.println (settings.samplePointFromBitStart ()) ; // 75, meaning 75%
   Serial.print ("actual bit rate: ") ;
-  Serial.println (settings.actualBitRate ()) ; //  500000: ok, bit rate did not change
+  Serial.println (settings.actualBitRate ()) ; // 500000: ok, bit rate did not change
   Serial.print ("Consistency: ") ;
   Serial.println (settings.CANBitSettingConsistency ()) ; // 0, meaning Ok
   ...
@@ -1787,9 +1788,73 @@ And sampling points (in per-cent unit) are given by:
 
 
 
+\subsectionLabel{Second \texttt{ACAN2515Settings} constructor: explicit CAN bit settings}{explicitCANbitSettings}
 
+{\bf New in release 1.0.4.} This \texttt{ACAN2515Settings} constructor defines explicitly CAN bit settings. For example, see the \texttt{LoopBackDemoBitRateSettings} sketch~:
+{ \small\begin{lstlisting}[language=c++]
+const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
+void setup () {
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, // For computing actual bit rate
+                             4, // Bit rate prescaler, 1...64
+                             5, // Propagation Segment, 1...8
+                             5, // Phase Segment1, 1...8
+                             5, // Phase Segment2, 2...8
+                             4) ; // SJW, 1...4
+  ...
+}
+\end{lstlisting}}
 
+This constructor requires six arguments~:
+\begin{enumerate}
+  \item \texttt{inQuartzFrequency}: the quartz frequency (\texttt{uint32\_t}); note the quartz frequency is only used for computing actual bit rate;
+  \item \texttt{inBitRatePrescaler}: the bit rate prescaler (\texttt{uint8\_t});
+  \item \texttt{inPropagationSegment}: the propagation segment (\texttt{uint8\_t});
+  \item \texttt{inPhaseSegment1}: the phase segment 1 (\texttt{uint8\_t});
+  \item \texttt{inPhaseSegment2}: the phase segment 2 (\texttt{uint8\_t});
+  \item \texttt{inSJW}: the Synchronization Jump Width (\texttt{uint8\_t}).
+\end{enumerate}
 
+By default, \emph{single sampling} is selected. Set \texttt{mTripleSampling} to \texttt{true} is you want \emph{triple sampling}.
+
+Respect the \texttt{MCP2515} constraints:
+\begin{align*}
+1 & \leqslant \texttt{inBitRatePrescaler} \leqslant 64 \\
+1 & \leqslant \texttt{inSJW} \leqslant 4 \\
+1 & \leqslant \texttt{inPropagationSegment} \leqslant 8 \\
+\text{Single sampling: }1 & \leqslant \texttt{inPhaseSegment1} \leqslant 8\\
+\text{Triple sampling: }2 & \leqslant \texttt{inPhaseSegment1} \leqslant 8\\
+2 & \leqslant \texttt{inPhaseSegment2} \leqslant 8 \\
+\texttt{inSJW} &<\texttt{inPhaseSegment2}\\
+\texttt{inPhaseSegment2} & \leqslant \texttt{inPropagationSegment} + \texttt{inPhaseSegment1}
+\end{align*}
+
+Call the \texttt{CANBitSettingConsistency} method (\refSubsectionPage{CANBitSettingConsistency}) for checking your bit setting is consistent. Note the \texttt{ACAN2515::begin} method does this.
+
+You can use this constructor for several reasons:
+\begin{itemize}
+  \item you need a specific bit setting that the algorithm of the previous constructor cannot provide;
+  \item you want to save program memory.
+\end{itemize}
+
+The algorithm of the previous constructor requires 32-bit arithmetic, that is expensive for a 8-bit processor as the Arduino Uno's one. The \refTableau{sketchSizes} lists the program sizes of the \texttt{LoopBackDemo} and \texttt{LoopBackDemoBitRateSettings} sketches, for several platforms. The Teensy 3.5 settings are: USB Serial, 120 MHz, Smallest code with LTO.
+
+\begin{table}[!ht]
+  \small
+  \onehalfspacing
+  \centering
+  \begin{tabular}{lll}
+    \textbf{Platform} & \textbf{Sketch LoopBackDemo} & \textbf{Sketch LoopBackDemoBitRateSettings}\\
+    Arduino Uno & ~7 600 bytes & ~6 410 bytes\\
+    Adafruit Feather M0 & 15 976 bytes & 15 656 bytes\\
+    Teensy 3.5 & 14 004 bytes & 13 524 bytes\\
+  \end{tabular}
+  \caption{Sketch program sizes}
+  \labelTableau{sketchSizes}
+\end{table}
+
+A starting point for obtaining the bit setting parameters is to execute the first constructor and note the values it provides. For example, run the \texttt{LoopBackDemo} sketch, it displays in the serial monitor the bit setting values that you can then use in the \texttt{LoopBackDemoBitRateSettings} sketch.
+
+You can also write a program for your desktop computer: the \texttt{ACAN2515Settings} class is not Arduino specific.
 
 
 

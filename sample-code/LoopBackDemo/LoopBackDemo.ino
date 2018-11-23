@@ -1,5 +1,5 @@
 //——————————————————————————————————————————————————————————————————————————————
-//  ACAN2515 Demo in loopback mode, using hardware SPI, with an external interrupt
+//  ACAN2515 Demo in loopback mode
 //——————————————————————————————————————————————————————————————————————————————
 
 #include <ACAN2515.h>
@@ -61,7 +61,7 @@ void setup () {
     Serial.println (settings.mPhaseSegment1) ;
     Serial.print ("Phase segment 2: ") ;
     Serial.println (settings.mPhaseSegment2) ;
-    Serial.print ("SJW:") ;
+    Serial.print ("SJW: ") ;
     Serial.println (settings.mSJW) ;
     Serial.print ("Triple Sampling: ") ;
     Serial.println (settings.mTripleSampling ? "yes" : "no") ;
@@ -81,9 +81,9 @@ void setup () {
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
-static unsigned gBlinkLedDate = 0 ;
-static unsigned gReceivedFrameCount = 0 ;
-static unsigned gSentFrameCount = 0 ;
+static uint32_t gBlinkLedDate = 0 ;
+static uint32_t gReceivedFrameCount = 0 ;
+static uint32_t gSentFrameCount = 0 ;
 
 //——————————————————————————————————————————————————————————————————————————————
 

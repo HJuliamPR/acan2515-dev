@@ -305,7 +305,7 @@
 %                                                                                                                       *
 %-----------------------------------------------------------------------------------------------------------------------*
 
-\title{\bf \Huge{ACAN2515 library for Arduino\\Version 1.0.4}}
+\title{\bf \Huge{ACAN2515 library for Arduino\\Version 1.1.0}}
 \author{Pierre Molinaro}
 \date {\today}
 
@@ -337,9 +337,26 @@
     1.0.4 & November 23, 2018 & BugFix: transmit buffer \#2 size setting \\
           &                   & Transmit and send buffers properties are now \texttt{uint16\_t} (instead of \texttt{uint32\_t}), for saving memory \\
           &                   & \texttt{ACAN2515::begin} now returns an \texttt{uint16\_t} (instead of \texttt{uint32\_t})\\
-          &                   & New \texttt{ACAN2515Settings} constructor with explicit bit rate settings (see \refSubsectionPage{explicitCANbitSettings} and \texttt{LoopBackDemoBitRateSettings} demo sketch)
+          &                   & New \texttt{ACAN2515Settings} constructor with explicit bit rate settings (see \refSubsectionPage{explicitCANbitSettings} and \texttt{LoopBackDemoBitRateSettings} demo sketch)\\
+    1.1.0 & November 24, 2018 & \texttt{ACAN2515Settings::CANBitSettingConsistency} now returns an \texttt{uint16\_t} \\
+          &                   & Compatibility with \texttt{ACAN2515Tiny} library\\
   \end{tabular}
 \end{center}
+
+{\bf Note from updating from 1.0.x.}
+
+In 1.0.x, the \texttt{ACAN2515RequestedMode} and \texttt{ACAN2515CLKOUT\_SOF} were autonomous enumeration classes. In 1.1.x, they are embedded in the \texttt{ACAN2515Settings} class. Consquently, the correspondant \texttt{ACAN2515Settings} property settings should be modified accordingly; for example:
+
+{ \small\begin{lstlisting}[language=c++]
+  settings.mRequestedMode = ACAN2515RequestedMode::LoopBackMode ; // In 1.0.x
+\end{lstlisting}}
+
+should be rewritten as:
+{ \small\begin{lstlisting}[language=c++]
+  settings.mRequestedMode = ACAN2515Settings::LoopBackMode ; // In 1.1.x
+\end{lstlisting}}
+
+
 
 \section{Features}
 
@@ -438,7 +455,7 @@ The \refFigure{}{figureStructureStationCAN} illustrates message flow for sending
 
 
 
-{\bf Sending messages.} A message is defined by an instance of \texttt{CANMessage} class. For sending a message, user code calls the \texttt{tryToSend} method -- see \refSectionPage{sendingFrames}, and the \texttt{idx} property of the sent message specifies a transmit buffer. The ACAN2515 driver defines 3 transmit buffers, each of them corresponding to the one of the 3 \texttt{MCP2515} transmit buffers (\texttt{TXB0}, \texttt{TXB1}, \texttt{TXB2}). These buffers can contain at most one message. The message is  transfered in a driver transmit before to be moved by the interrupt service routine into the corresponding MCP2515 transmit buffer. The size of the \emph{Driver Transmit Buffer 0} is 16 by default, the size of the \emph{Driver Transmit Buffer 1} and \emph{Driver Transmit Buffer 1} are zero by default  -- see \refSubsectionPage{driverTransmitBufferSize} for changing the default values.
+{\bf Sending messages.} A message is defined by an instance of \texttt{CANMessage} class. For sending a message, user code calls the \texttt{tryToSend} method -- see \refSectionPage{sendingFrames}, and the \texttt{idx} property of the sent message specifies a transmit buffer. The ACAN2515 driver defines 3 transmit buffers, each of them corresponding to the one of the 3 \texttt{MCP2515} transmit buffers (\texttt{TXB0}, \texttt{TXB1}, \texttt{TXB2}). These buffers can contain at most one message. The message is  transfered in a driver transmit buffer before to be moved by the interrupt service routine into the corresponding MCP2515 transmit buffer. The size of the \emph{Driver Transmit Buffer 0} is 16 by default, the size of the \emph{Driver Transmit Buffer 1} and \emph{Driver Transmit Buffer 1} are zero by default  -- see \refSubsectionPage{driverTransmitBufferSize} for changing the default values.
 
 
 
@@ -536,7 +553,7 @@ Configuration is a four-step operation. This line is the first step. It instanci
 
 
 { \small\begin{lstlisting}[language=c++]
-  settings.mRequestedMode = ACAN2515RequestedMode::LoopBackMode ;
+  settings.mRequestedMode = ACAN2515Settings::LoopBackMode ;
 \end{lstlisting}}
 This is the second step. You can override the values of the properties of \texttt{settings} object. Here, the \texttt{mRequestedMode} property is set to \texttt{LoopBackMode} -- its value is \texttt{NormalMode} by default. Setting this property enables \emph{loop back}, that is you can run this demo sketch even it you have no connection to a physical CAN network. The \refSubsectionPage{propertiesACAN2515Settings} lists all properties you can override.
 
@@ -570,9 +587,9 @@ Last step: the configuration of the \texttt{can} driver returns an error code, s
 
 
 { \small\begin{lstlisting}[language=c++]
-static unsigned gBlinkLedDate = 0 ;
-static unsigned gReceivedFrameCount = 0 ;
-static unsigned gSentFrameCount = 0 ;
+static uint32_t gBlinkLedDate = 0 ;
+static uint32_t gReceivedFrameCount = 0 ;
+static uint32_t gSentFrameCount = 0 ;
 \end{lstlisting}}
 The \texttt{gSendDate} global variable is used for sending a CAN message every 2 s. The \texttt{gSentCount} global variable counts the number of sent messages. The \texttt{gReceivedCount} global variable counts the number of received messages.
 
@@ -915,7 +932,7 @@ So it is wise to systematically test the returned value.
 A way is to use a global variable to note if the message has been successfully transmitted to driver transmit buffer. For example, for sending a message every 2 seconds: 
 
 {\small\begin{lstlisting}[language=c++]
-static unsigned gSendDate = 0 ;
+static uint32_t gSendDate = 0 ;
 
 void loop () {
   if (gSendDate < millis ()) {
@@ -980,7 +997,7 @@ A zero size is valid: calling the \texttt{tryToSend} method returns \texttt{true
 
 The \texttt{transmitBufferSize} method has one argument, the index $i$ of a driver transmit buffer ($0 \leqslant i \leqslant 2$). It returns the allocated size of this driver transmit buffer, that is the value of \texttt{settings.mTransmitBuffer$i$Size} when the \texttt{begin} method is called.
 { \small\begin{lstlisting}[language=c++]
-const uint32_t s = can.transmitBufferSize (1) ; // Driver transmit buffer 1
+const uint16_t s = can.transmitBufferSize (1) ; // Driver transmit buffer 1
 \end{lstlisting}}
 
 
@@ -988,7 +1005,7 @@ const uint32_t s = can.transmitBufferSize (1) ; // Driver transmit buffer 1
 
 The \texttt{transmitBufferCount} method has one argument, the index $i$ of a driver transmit buffer ($0 \leqslant i \leqslant 2$). It returns the current number of messages in the driver transmit buffer $i$.
 { \small\begin{lstlisting}[language=c++]
-const uint32_t n = can.transmitBufferCount (0) ; // Driver transmit buffer 0
+const uint16_t n = can.transmitBufferCount (0) ; // Driver transmit buffer 0
 \end{lstlisting}}
 
 
@@ -996,12 +1013,12 @@ const uint32_t n = can.transmitBufferCount (0) ; // Driver transmit buffer 0
 
 The \texttt{transmitBufferPeakCount} method has one argument, the index $i$ of a driver transmit buffer ($0 \leqslant i \leqslant 2$). It returns the peak value of message count in the driver transmit buffer $i$.
 { \small\begin{lstlisting}[language=c++]
-const uint32_t max = can.transmitBufferPeakCount (2) ; // Driver transmit buffer 0
+const uint16_t max = can.transmitBufferPeakCount (2) ; // Driver transmit buffer 2
 \end{lstlisting}}
 
 If the transmit buffer is full when \texttt{tryToSend} is called, the return value of this call is \texttt{false}. In such case, the following calls of \texttt{transmitBufferPeakCount($i$)} will return \texttt{transmitBufferSize ($i$)+1}. 
 
-So, when \texttt{transmitBufferPeakCount($i$)} returns a value lower or equal to \texttt{transmitBufferSize ($i$)}, it means that calls to \texttt{tryToSend} have allways returned \texttt{true}, and no overflow occurs on transmit buffer $i$.
+So, when \texttt{transmitBufferPeakCount($i$)} returns a value lower or equal to \texttt{transmitBufferSize ($i$)}, it means that calls to \texttt{tryToSend} have allways returned \texttt{true}, and no overflow occurs on driver transmit buffer $i$.
 
 
 
@@ -1093,7 +1110,7 @@ As the size of \texttt{CANMessage} class is 16 bytes, the actual size of the dri
 
 The \texttt{receiveBufferSize} method returns the size of the driver receive buffer, that is the value of the \texttt{mReceiveBufferSize} property of \texttt{settings} variable when the the \texttt{begin} method is called.
 { \small\begin{lstlisting}[language=c++]
-const uint32_t s = can.receiveBufferSize () ;
+const uint16_t s = can.receiveBufferSize () ;
 \end{lstlisting}}
 
 
@@ -1101,7 +1118,7 @@ const uint32_t s = can.receiveBufferSize () ;
 
 The \texttt{receiveBufferCount} method returns the current number of messages in the driver receive buffer.
 { \small\begin{lstlisting}[language=c++]
-const uint32_t n = can.receiveBufferCount () ;
+const uint16_t n = can.receiveBufferCount () ;
 \end{lstlisting}}
 
 
@@ -1109,7 +1126,7 @@ const uint32_t n = can.receiveBufferCount () ;
 
 The \texttt{receiveBufferPeakCount} method returns the peak value of message count in the driver receive buffer.
 { \small\begin{lstlisting}[language=c++]
-const uint32_t max = can.receiveBufferPeakCount () ;
+const uint16_t max = can.receiveBufferPeakCount () ;
 \end{lstlisting}}
 
 Note the driver receive buffer can overflow, if messages are not retrieved (by calling the \texttt{receive} or the \texttt{dispatchReceivedMessage} methods). If an overflow occurs, further calls of \texttt{can.receiveBufferPeakCount ()} return \texttt{can.receiveBufferSize ()+1}.
@@ -1433,7 +1450,7 @@ If a filter definition does not name a call back function, the corresponding mes
 The \texttt{dispatchReceivedMessage} method has an optional argument -- \texttt{NULL} by default: a function name. This function is called for every message that pass the receive filters, with an argument equal to the matching filter index:
 
 { \small\begin{lstlisting}[language=c++]
-void filterMatchFunction (const uint32_t inFilterIndex) {
+void filterMatchFunction (const uint8_t inFilterIndex) {
   ...
 }
 
@@ -1452,12 +1469,12 @@ You can use this function for maintaining statistics about receiver filter match
 
 There are three \texttt{begin} method prototypes:
 { \small\begin{lstlisting}[language=c++]
-uint32_t ACAN2515::begin (const ACAN2515Settings & inSettings,
+uint16_t ACAN2515::begin (const ACAN2515Settings & inSettings,
                           void (* inInterruptServiceRoutine) (void)) ;
 \end{lstlisting}}
 
 { \small\begin{lstlisting}[language=c++]
-uint32_t ACAN2515::begin (const ACAN2515Settings & inSettings,
+uint16_t ACAN2515::begin (const ACAN2515Settings & inSettings,
                           void (* inInterruptServiceRoutine) (void),
                           const ACAN2515Mask inRXM0,
                           const ACAN2515AcceptanceFilter inAcceptanceFilters [],
@@ -1465,7 +1482,7 @@ uint32_t ACAN2515::begin (const ACAN2515Settings & inSettings,
 \end{lstlisting}}
 
 { \small\begin{lstlisting}[language=c++]
-uint32_t ACAN2515::begin (const ACAN2515Settings & inSettings,
+uint16_t ACAN2515::begin (const ACAN2515Settings & inSettings,
                           void (* inInterruptServiceRoutine) (void),
                           const ACAN2515Mask inRXM0,
                           const ACAN2515Mask inRXM1,
@@ -2057,8 +2074,8 @@ All properties of the \texttt{ACAN2515Settings} class are declared \texttt{publi
     \texttt{mBitRateClosedToDesiredRate} & \texttt{bool} & \texttt{true} & See \refSubsectionPage{CANbitSettings} \\
     \texttt{mOneShotModeEnabled} & \texttt{bool} & \texttt{false} & See \refSubsubsectionPage{mOneShotModeEnabled} \\
     \texttt{mTXBPriority} & \texttt{uint8\_t} & \texttt{0} & See \refSubsubsectionPage{mTXBPriority} \\
-    \texttt{mRequestedMode} & \texttt{ACAN2515RequestedMode} & \texttt{NormalMode} & See \refSubsubsectionPage{mRequestedMode} \\
-    \texttt{mCLKOUT\_SOF\_pin} & \texttt{ACAN2515CLKOUT\_SOF} & \texttt{CLOCK} & See \refSubsubsectionPage{mCLKOUT} \\
+    \texttt{mRequestedMode} & \texttt{RequestedMode} & \texttt{NormalMode} & See \refSubsubsectionPage{mRequestedMode} \\
+    \texttt{mCLKOUT\_SOF\_pin} & \texttt{CLKOUT\_SOF} & \texttt{CLOCK} & See \refSubsubsectionPage{mCLKOUT} \\
     \texttt{mRolloverEnable} & \texttt{bool} & \texttt{true} & See \refSubsubsectionPage{mRolloverEnable} \\
     \texttt{mReceiveBufferSize} & \texttt{uint16\_t} & \texttt{32} & See \refSubsectionPage{driverReceiveBufferSize} \\
     \texttt{mTransmitBuffer0Size} & \texttt{uint16\_t} & \texttt{16} & See \refSubsectionPage{driverTransmitBufferSize} \\
@@ -2138,278 +2155,6 @@ public: uint8_t receiveErrorCounter (void) ;
 public: uint8_t transmitErrorCounter (void) ;
 \end{lstlisting}}
 
-
-
-
-
-
-
-%\sectionLabel{Some CAN networks}{someCANnetworks}
-%
-%
-%\subsection{A typical configuration}
-%
-%\newcommand\controleurCAN {
-%  \draw[thick, fill=white] (0.4, 2.5) -- ++ (0, -1.5) -- ++ (2.2, 0) -- ++ (0, 1.5);
-%  \draw (1, 1) node [above] {\footnotesize\tt CANTX};
-%  \draw (2, 1) node [above] {\footnotesize\tt CANRX};
-%  \draw (1.5, 2.25) node {\footnotesize\it Teensy 3.x};
-%}
-%
-%\newcommand\PMPoint[2] {
-%  \draw (#1, #2)[fill=black] circle (.05);
-%}
-%
-%\newcommand\transceiver{
-%  \draw (1, 1) [->] -- ++ (0, -1) ;
-%  \draw (2, 1) [<-] -- ++ (0, -1) ;
-%  \draw (1, -4) -- ++ (0, 1.9) ;
-%  \draw (2, -2) -- ++ (0, -1) ;
-%  \draw (1, -2.05)[thick, fill=white] circle (0.05) ;
-%  \draw[thick, fill=white] (0.4, -2) rectangle ++ (2.2, 2);
-%  \draw (1, -2) node [above] {\footnotesize\tt CAN\_L};
-%  \draw (2, -2) node [above] {\footnotesize\tt CAN\_H};
-%  \draw (1, 0) node [below] {\footnotesize\tt TxD};
-%  \draw (2, 0) node [below] {\footnotesize\tt RxD};
-%  \draw (1.5, -1) node {\footnotesize\it CAN transceiver};
-%  \PMPoint{1}{-4}
-%  \PMPoint{2}{-3}
-%}
-%
-%\newcommand\board{
-%  \draw[very thick, fill=gray!12] (0, 2.5) -- ++ (0, -5) -- ++ (3, 0) -- ++ (0, 5);
-%}
-%
-%
-%\begin{figure}[!ht]
-%  \centering
-%  \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
-%%   \draw (-.5, -4.5) [decorate, decoration=bumps] rectangle ++ (13.5, 5) ;
-%   \board
-%   \controleurCAN
-%   \transceiver
-%   \begin{scope}[xshift=5cm]
-%     \board
-%     \controleurCAN
-%     \transceiver
-%   \end{scope}
-%   \begin{scope}[xshift=10cm]
-%     \board
-%     \controleurCAN
-%     \transceiver
-%   \end{scope}
-%
-%   \draw (12.5, -4) -- ++ (0, 1);
-%   \draw (0.5, -4) -- ++ (0, 1);
-%
-%   \draw (0.5, -4) -- ++ (3, 0);
-%   \draw[dotted] (3.5, -4) -- ++ (1, 0);
-%   \draw (4.5, -4) -- ++ (3, 0);
-%   \draw[dotted] (7.5, -4) -- ++ (1, 0);
-%   \draw (8.5, -4) -- ++ (4, 0);
-%
-%   \draw (0.5, -3) -- ++ (3, 0);
-%   \draw[dotted] (3.5, -3) -- ++ (1, 0);
-%   \draw (4.5, -3) -- ++ (3, 0);
-%   \draw[dotted] (7.5, -3) -- ++ (1, 0);
-%   \draw (8.5, -3) -- ++ (4, 0);
-%
-%   \draw (0.5-.125, -3.75)[fill=white] rectangle ++ (.25, .5) ;
-%   \draw (12.5-.125, -3.75)[fill=white] rectangle ++ (.25, .5) ;
-%   \draw (0.5, -3.5) node[left] {\footnotesize$120\Omega~$} ;
-%   \draw (12.5, -3.5) node[left] {\footnotesize$120\Omega~$} ;
-%%   \draw (3, -3) node[above] {\footnotesize\tt CAN\_H} ;
-%%   \draw (3, -4) node[above] {\footnotesize\tt CAN\_L} ;
-%  \end{tikzpicture}
-%  \caption{Schematic diagram of a CAN bus}
-%  \labelFigure{figureConnexionTransmetteurRecepteur}
-%\end{figure}
-
-
-%\subsection{Transceivers}
-%
-%\subsubsection{\texttt{MCP2551}}
-%
-%The \refFigure{}{connexionMCP2551} shows how to connect a Teensy 3.x to a \texttt{MCP2551} transceiver\footnote{\url{http://ww1.microchip.com/downloads/en/DeviceDoc/20001667G.pdf}}. Note Microchip does not recommend the \texttt{MCP2551} for new design, use the \texttt{MCP2561}\footnote{\url{http://ww1.microchip.com/downloads/en/DeviceDoc/20005167C.pdf}} instead (see \refSubsubsectionPage{MCP2561}).
-%
-%The \texttt{MCP2551} requires a \texttt{+5V} power supply. The \texttt{CANTX} pin of the Tennsy 3.x can be directly connected to the \texttt{TXD} pin of the \texttt{MCP2551}. As the \texttt{MCP2551} is powered by \texttt{+5V}, the \texttt{RXD} high level can be directly connected to the \texttt{CANRX} pin only for Teensy 3.x that are \texttt{+5V} tolerant, i.e. Teensy 3.1, Teensy 3.2 and Teensy 3.5. {\bf\color{red} Do not connect directly \texttt{RXD} pin to a Teensy 3.6 \texttt{CANRX} pin!} Teensy 3.6 is not \texttt{+5V} tolerant. For Teensy 3.6, you should lower the high level voltage under $3.3~V$, for example by using a resistor bridge that lowers the high level voltage to $\frac{18~k\Omega}{18~k\Omega + 12~k\Omega}\cdot 5~V = 3~V$.
-%
-%The \texttt{RS} pin is connected to ground: \emph{High-Speed mode is selected by connecting the RS pin to VSS. In this mode, the transmitter output drivers have fast output rise and fall times to support high-speed CAN bus rates}.
-%
-%The \texttt{VREF} pin is \emph{Reference Voltage Output (defined as VDD/2)}, and is left open.
-%
-%
-%\newcommand\masse[2] {
-%  \draw[thick] (#1 -0.2, #2) -- ++ (0.4, 0);
-%  \draw[thick] (#1 -0.1, #2-0.1) -- ++ (0.2, 0);
-%  \draw[thick] (#1, #2-0.2) -- ++ (0, 0);
-%}
-%
-%\newcommand\MCPvingtCinqCinquanteEtUn[2]{
-%  \draw (1, -2.5) -- ++ (0, 0.4) ;
-%  \draw (2, -2) -- ++ (0, -0.5) ;
-%  \draw (2.6, -1.4) -- ++ (1.4, 0) ;
-%  \PMPoint{4}{-1.4}
-%  \draw (0.4, -0.6) -- ++ (-0.5, 0) ;
-%  \draw (0.4, -1.4) -- ++ (-0.5, 0) -- ++ (0, -0.35) ;
-%  \masse{-0.1}{-1.75}
-%  \draw (1, -2.05)[thick, fill=white] circle (0.05) ;
-%  \draw[thick, fill=white] (0.4, -2) rectangle ++ (2.2, 2);
-%  \draw (1, -2) node [above] {\footnotesize\tt CANL};
-%  \draw (2, -2) node [above] {\footnotesize\tt CANH};
-%  \draw (1, 0) node [below] {\footnotesize\tt TXD};
-%  \draw (2, 0) node [below] {\footnotesize\tt RXD};
-%  \draw (0.4, -0.6) node [right] {\footnotesize\tt VDD};
-%  \draw (-0.1, -0.6) node [left] {\footnotesize\tt +5V};
-%  \draw (0.4, -1.4) node [right] {\footnotesize\tt VSS};
-%  \draw (2.6, -0.6) node [left] {\footnotesize\tt #1};
-%  \draw (2.6, -1.4) node [left] {\footnotesize\tt RS};
-%  \draw (1.5, -1) node {\footnotesize\it #2};
-%  \draw (1, 0) node[above left] {\footnotesize\tt 1} ;
-%  \draw (2, 0) node[above right] {\footnotesize\tt 4} ;
-%  \draw (1, -2) node[below left] {\footnotesize\tt 6} ;
-%  \draw (2, -2) node[below right] {\footnotesize\tt 7} ;
-%  \draw (2.6, -0.6) node[above right] {\footnotesize\tt 5} ;
-%  \draw (2.6, -1.4) node[above right] {\footnotesize\tt 8} ;
-%  \draw (0.4, -0.6) node[above left] {\footnotesize\tt 3} ;
-%  \draw (0.4, -1.4) node[above left] {\footnotesize\tt 2} ;
-%}
-%
-%\begin{figure}[!ht]
-%  \centering
-%  \subfloat[Teensy 3.1 / 3.2, 3.5, 3.6]{
-%    \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
-%      \MCPvingtCinqCinquanteEtUn{VREF}{MCP 2551}
-%      \draw (2.6, -0.6) -- ++ (0.5, 0) ;
-%      \draw (3.1, -0.6) node [right] {\footnotesize\tt\it nc};
-%      \draw (2, 0.5) [<-] -- ++ (0, -0.5) ;
-%      \draw (2-0.2, 0.5) rectangle ++ (0.4, 1);
-%      \draw (2, 1.5) [->] -- ++ (0, 1.0);
-%      \draw (2, 2) -- ++ (2, 0);
-%      \draw[fill=white] (2.5, 2-0.2) rectangle ++ (1, 0.4);
-%      \draw (3, 2) node {\small$18~k\Omega$};
-%      \draw (2, 1) node[rotate=90] {\small$12~k\Omega$};
-%      \PMPoint{2}{2}
-%      \PMPoint{4}{2}
-%  
-%      \draw[thick, fill=white] (0.4, 4) -- ++ (0, -1.5) -- ++ (2.2, 0) -- ++ (0, 1.5);
-%      \draw (1, 2.5) node [above] {\footnotesize\tt CANTX};
-%      \draw (2, 2.5) node [above] {\footnotesize\tt CANRX};
-%      \draw (1.5, 3.75) node {\footnotesize\it Teensy 3.x};
-%      \draw (1, 2.5) [->] -- ++ (0, -2.5) ;
-%      \draw (2.6, 3.25) node [left] {\footnotesize\tt GND};
-%      \draw (2.6, 3.25) -- ++ (1.4, 0) -- ++ (0, -5);
-%      \masse{4}{-1.75}
-%    \end{tikzpicture}
-%  }
-%  \quad\quad\quad\quad
-%  \subfloat[Teensy 3.1 / 3.2, 3.5]{
-%    \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
-%      \MCPvingtCinqCinquanteEtUn{VREF}{MCP 2551}
-%      \draw (3.1, -0.6) node [right] {\footnotesize\tt\it nc};
-%      \draw (2.6, -0.6) -- ++ (0.5, 0) ;
-%      \draw (2, 2.5) [<-] -- ++ (0, -2.5) ;
-%  
-%      \draw[thick, fill=white] (0.4, 4) -- ++ (0, -1.5) -- ++ (2.2, 0) -- ++ (0, 1.5);
-%      \draw (1, 2.5) node [above] {\footnotesize\tt CANTX};
-%      \draw (2, 2.5) node [above] {\footnotesize\tt CANRX};
-%      \draw (1.5, 3.85) node {\footnotesize\it Teensy 3.1 / 3.2};
-%      \draw (1.5, 3.55) node {\footnotesize\it Teensy 3.5};
-%      \draw (1, 2.5) [->] -- ++ (0, -2.5) ;
-%      \draw (2.6, 3.25) node [left] {\footnotesize\tt GND};
-%      \draw (2.6, 3.25) -- ++ (1.4, 0) -- ++ (0, -5);
-%      \masse{4}{-1.75}
-%      \draw (2.6, 3.75) node[right] {\footnotesize\color{red} Do not use a Teensy 3.6!};
-%      \node[rectangle callout, fill=white, draw, callout relative pointer={(-1.7, 0.6)}] at (4.5, 1.5) {\footnotesize\color{red} Teensy 3.6 inputs are not +5V tolerant!};
-%    \end{tikzpicture}
-%  }
-%  \caption{Connecting a \texttt{MCP2551} to a Teensy 3.x}
-%  \labelFigure{connexionMCP2551}
-%\end{figure}
-%
-%
-%
-%\subsubsectionLabel{\texttt{MCP2561}}{MCP2561}
-%
-%The pinout of the \texttt{MCP2561} is the same than the \texttt{MCP2551}: the \texttt{VREF} output has been renamed as \texttt{SPLIT} (see \refFigure{}{connexionMCP2561}). {\bf\color{red} Do not connect directly \texttt{RXD} pin to a Teensy 3.6 \texttt{CANRX} pin!}
-%
-%\begin{figure}[!ht]
-%  \centering
-%  \subfloat[Teensy 3.1 / 3.2, 3.5, 3.6]{
-%    \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
-%      \MCPvingtCinqCinquanteEtUn{SPLIT}{MCP 2561}
-%      \draw (3.1, -0.6) node [right] {\footnotesize\tt\it nc};
-%      \draw (2.6, -0.6) -- ++ (0.5, 0) ;
-%      \draw (2, 0.5) [<-] -- ++ (0, -0.5) ;
-%      \draw (2-0.2, 0.5) rectangle ++ (0.4, 1);
-%      \draw (2, 1.5) [->] -- ++ (0, 1.0);
-%      \draw (2, 2) -- ++ (2, 0);
-%      \draw[fill=white] (2.5, 2-0.2) rectangle ++ (1, 0.4);
-%      \draw (3, 2) node {\small$18~k\Omega$};
-%      \draw (2, 1) node[rotate=90] {\small$12~k\Omega$};
-%      \PMPoint{2}{2}
-%      \PMPoint{4}{2}
-%  
-%      \draw[thick, fill=white] (0.4, 4) -- ++ (0, -1.5) -- ++ (2.2, 0) -- ++ (0, 1.5);
-%      \draw (1, 2.5) node [above] {\footnotesize\tt CANTX};
-%      \draw (2, 2.5) node [above] {\footnotesize\tt CANRX};
-%      \draw (1.5, 3.75) node {\footnotesize\it Teensy 3.x};
-%      \draw (1, 2.5) [->] -- ++ (0, -2.5) ;
-%      \draw (2.6, 3.25) node [left] {\footnotesize\tt GND};
-%      \draw (2.6, 3.25) -- ++ (1.4, 0) -- ++ (0, -5);
-%      \masse{4}{-1.75}
-%    \end{tikzpicture}
-%  }
-%  \quad\quad\quad\quad
-%  \subfloat[Teensy 3.1 / 3.2, 3.5]{
-%    \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
-%      \MCPvingtCinqCinquanteEtUn{SPLIT}{MCP 2561}
-%      \draw (3.1, -0.6) node [right] {\footnotesize\tt\it nc};
-%      \draw (2.6, -0.6) -- ++ (0.5, 0) ;
-%      \draw (2, 2.5) [<-] -- ++ (0, -2.5) ;
-%  
-%      \draw[thick, fill=white] (0.4, 4) -- ++ (0, -1.5) -- ++ (2.2, 0) -- ++ (0, 1.5);
-%      \draw (1, 2.5) node [above] {\footnotesize\tt CANTX};
-%      \draw (2, 2.5) node [above] {\footnotesize\tt CANRX};
-%      \draw (1.5, 3.85) node {\footnotesize\it Teensy 3.1 / 3.2};
-%      \draw (1.5, 3.55) node {\footnotesize\it Teensy 3.5};
-%      \draw (1, 2.5) [->] -- ++ (0, -2.5) ;
-%      \draw (2.6, 3.25) node [left] {\footnotesize\tt GND};
-%      \draw (2.6, 3.25) -- ++ (1.4, 0) -- ++ (0, -5);
-%      \masse{4}{-1.75}
-%      \draw (2.6, 3.75) node[right] {\footnotesize\color{red} Do not use a Teensy 3.6!};
-%      \node[rectangle callout, fill=white, draw, callout relative pointer={(-1.7, 0.6)}] at (4.5, 1.5) {\footnotesize\color{red} Teensy 3.6 inputs are not +5V tolerant!};
-%    \end{tikzpicture}
-%  }
-%  \caption{Connecting a \texttt{MCP2561} to a Teensy 3.x}
-%  \labelFigure{connexionMCP2561}
-%\end{figure}
-%
-%\subsubsection{\texttt{MCP2562}}
-%
-%\begin{figure}[!ht]
-%  \centering
-%  \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
-%    \MCPvingtCinqCinquanteEtUn{VIO}{MCP 2562}
-%    \draw (2, 0.5) [<-] -- ++ (0, -0.5) ;
-%    \draw (1, 0.5) [->] -- ++ (0, -0.5) ;
-%
-%    \draw[thick, fill=white] (0.4, 2) -- ++ (0, -1.5) -- ++ (2.2, 0) -- ++ (0, 1.5);
-%    \draw (1, 0.5) node [above] {\footnotesize\tt CANTX};
-%    \draw (2, 0.5) node [above] {\footnotesize\tt CANRX};
-%    \draw (1.5, 1.5) node {\footnotesize\it Teensy 3.x};
-%    \draw (2.6, 1.75) node [left] {\footnotesize\tt 3.3V};
-%    \draw (2.6, 1.25) node [left] {\footnotesize\tt GND};
-%    \draw (2.6, 1.25) -- ++ (1.4, 0) -- ++ (0, -3);
-%    \draw (2.6, 1.75) -- ++ (0.7, 0) -- ++ (0, -2.35) -- ++ (-0.7, 0);
-%    \masse{4}{-1.75}
-%  \end{tikzpicture}
-%  \caption{Connecting a \texttt{MCP2562} to a Teensy 3.x}
-%  \labelFigure{connexionMCP2562}
-%\end{figure}
-%
-%
-%\subsection{Networks with no transceiver}
 
 %-----------------------------------------------------------------------------------------------------------------------*
 %   F I N    D U    D O C U M E N T                                                                                     *

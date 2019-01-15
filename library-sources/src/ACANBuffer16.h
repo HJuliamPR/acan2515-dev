@@ -27,7 +27,6 @@ class ACANBuffer16 {
   mBuffer (NULL),
   mSize (0),
   mReadIndex (0),
-//  mWriteIndex (0),
   mCount (0),
   mPeakCount (0) {
   }
@@ -47,7 +46,6 @@ class ACANBuffer16 {
   private: CANMessage * mBuffer ;
   private: uint16_t mSize ;
   private: uint16_t mReadIndex ;
-//  private: uint16_t mWriteIndex ;
   private: uint16_t mCount ;
   private: uint16_t mPeakCount ; // > mSize if overflow did occur
 
@@ -67,7 +65,6 @@ class ACANBuffer16 {
     mBuffer = new CANMessage [inSize] ;
     mSize = inSize ;
     mReadIndex = 0 ;
- //   mWriteIndex = 0 ;
     mCount = 0 ;
     mPeakCount = 0 ;
   }
@@ -84,12 +81,6 @@ class ACANBuffer16 {
         writeIndex -= mSize ;
       }
       mBuffer [writeIndex] = inMessage ;
-//       mBuffer [mWriteIndex] = inMessage ;
-//       mWriteIndex += 1 ;
-//       if (mWriteIndex == mSize) {
-//         mWriteIndex = 0 ;
-//       }
-      mCount ++ ;
       if (mPeakCount < mCount) {
         mPeakCount = mCount ;
       }

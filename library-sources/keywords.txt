@@ -6,7 +6,7 @@
 # Datatypes (KEYWORD1)
 #######################################
 
-ACAN2515 KEYWORD1
+ACAN2515	KEYWORD1
 ACAN2515Settings	KEYWORD1
 ACAN2515Mask	KEYWORD1
 CANMessage	KEYWORD1

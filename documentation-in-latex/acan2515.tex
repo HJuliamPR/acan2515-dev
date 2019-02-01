@@ -352,7 +352,7 @@
 
 {\bf Note from updating from 1.0.x.}
 
-In 1.0.x, the \texttt{ACAN2515RequestedMode} and \texttt{ACAN2515CLKOUT\_SOF} were autonomous enumeration classes. In 1.1.x, they are embedded in the \texttt{ACAN2515Settings} class. Consquently, the correspondant \texttt{ACAN2515Settings} property settings should be modified accordingly; for example:
+In 1.0.x, the \texttt{ACAN2515RequestedMode} and \texttt{ACAN2515CLKOUT\_SOF} were autonomous enumeration classes. From 1.1.x, they are embedded in the \texttt{ACAN2515Settings} class. Consequently, the correspondant \texttt{ACAN2515Settings} property settings should be modified accordingly; for example:
 
 { \small\begin{lstlisting}[language=c++]
   settings.mRequestedMode = ACAN2515RequestedMode::LoopBackMode ; // In 1.0.x

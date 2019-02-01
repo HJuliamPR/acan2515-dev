@@ -24,7 +24,7 @@ def copyFile (sourceFile, destinationDir) :
 
 #------------------------------------------------------------------------------*
 
-def compileArduinoSketch (scriptDir, sketch) :
+def compileArduinoSketch (scriptDir, sketch, platform) :
   buildPath = scriptDir + "/build-path/"  + sketch
   if not os.path.exists (buildPath):
     os.makedirs (buildPath)
@@ -42,7 +42,7 @@ def compileArduinoSketch (scriptDir, sketch) :
     "-tools", "/Users/pierremolinaro/Library/Arduino15/packages",
     "-built-in-libraries", "/Applications/Arduino.app/Contents/Java/libraries",
     "-libraries", "/Users/pierremolinaro/Documents/Arduino-dev/libraries",
-    "-fqbn=teensy:avr:teensy35:usb=serial,speed=120,opt=oslto,keys=en-us",
+    "-fqbn=" + platform,
     "-ide-version=10805",
     "-build-path", buildPath,
     "-warnings=all",
@@ -52,15 +52,35 @@ def compileArduinoSketch (scriptDir, sketch) :
 
 #------------------------------------------------------------------------------*
 
+def compileArduinoSketchTeensy35 (scriptDir, sketch) :
+  compileArduinoSketch (
+    scriptDir,
+    sketch,
+    "teensy:avr:teensy35:usb=serial,speed=120,opt=oslto,keys=en-us"
+  )
+
+#------------------------------------------------------------------------------*
+
+def compileArduinoSketchESP32 (scriptDir, sketch) :
+  compileArduinoSketch (
+    scriptDir,
+    sketch,
+    "esp32:esp32:mhetesp32minikit:FlashFreq=80,PartitionScheme=default,UploadSpeed=921600,DebugLevel=none"
+  )
+
+#------------------------------------------------------------------------------*
+
 #--- Get script absolute path
 scriptDir = os.path.dirname (os.path.abspath (sys.argv [0]))
 os.chdir (scriptDir)
 #--- Compile sketches
-compileArduinoSketch (scriptDir, "TestWithACAN")
-compileArduinoSketch (scriptDir, "LoopBackDemo")
-compileArduinoSketch (scriptDir, "LoopBackDemoBitRateSettings")
-compileArduinoSketch (scriptDir, "LoopBackFilterDataByte")
-compileArduinoSketch (scriptDir, "LoopBackUsingFilters")
+compileArduinoSketchTeensy35 (scriptDir, "TestWithACAN")
+compileArduinoSketchTeensy35 (scriptDir, "LoopBackDemo")
+compileArduinoSketchTeensy35 (scriptDir, "LoopBackDemoBitRateSettings")
+compileArduinoSketchTeensy35 (scriptDir, "LoopBackFilterDataByte")
+compileArduinoSketchTeensy35 (scriptDir, "LoopBackUsingFilters")
+compileArduinoSketchESP32 (scriptDir, "LoopBackDemoESP32")
+compileArduinoSketchESP32 (scriptDir, "LoopBackDemoESP32-intensive")
 #--- Compile OSX code
 os.chdir (scriptDir + "/test-ACAN2515Settings-on-desktop")
 runCommand ([

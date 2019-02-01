@@ -63,6 +63,7 @@ class ACAN2515 {
 
 //--- Handling messages to send and receiving messages
   public: void isr (void) ;
+  public: bool isr_core (void) ;
   private: void handleTXBInterrupt (const uint8_t inTXB) ;
   private: void handleRXBInterrupt (void) ;
 
@@ -71,6 +72,9 @@ class ACAN2515 {
   private: const SPISettings mSPISettings ;
   private: const uint8_t mCS ;
   private: const uint8_t mINT ;
+  #ifdef ARDUINO_ARCH_ESP32
+    public: SemaphoreHandle_t mISRSemaphore ;
+  #endif
 
 //--- Receive buffer
   private: ACANBuffer16 mReceiveBuffer ;

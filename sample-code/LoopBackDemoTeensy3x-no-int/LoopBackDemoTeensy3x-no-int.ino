@@ -1,50 +1,35 @@
 //——————————————————————————————————————————————————————————————————————————————
-//  ACAN2515 Demo in loopback mode, for ESP32
-//——————————————————————————————————————————————————————————————————————————————
-
-#ifndef ARDUINO_ARCH_ESP32
-  #error "Select an ESP32 board" 
-#endif
-
+//  ACAN2515 Demo in loopback mode, using hardware SPI, with no interrupt
 //——————————————————————————————————————————————————————————————————————————————
 
 #include <ACAN2515.h>
 
 //——————————————————————————————————————————————————————————————————————————————
-//  For using SPI on ESP32, see demo sketch SPI_Multiple_Buses
-//  Two SPI busses are available in Arduino, HSPI and VSPI.
-//  By default, Arduino SPI uses VSPI, leaving HSPI unused.
-//  Default VSPI pins are: SCK=18, MISO=19, MOSI=23.
-//  You can change the default pin with additional begin arguments
-//    SPI.begin (MCP2517_SCK, MCP2517_MISO, MCP2517_MOSI)
-//  CS input of MCP2517 should be connected to a digital output port
-//  INT output of MCP2517 should be connected to a digital input port, with interrupt capability
-//  Notes:
-//    - GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pull-ups or
-//      pull-down resistors. They can’t be used as outputs.
-//    - some pins do not support INPUT_PULLUP (see https://www.esp32.com/viewtopic.php?t=439) 
-//    - All GPIOs can be configured as interrupts
-// See https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
+//  MCP2515 connections: adapt theses settings to your design
+//  This sketch is designed for a Teensy 3.5, using SPI0 (named SPI)
+//  But standard Teensy 3.5 SPI0 pins are not used
+//    SCK input of MCP2515 is connected to pin #27
+//    SI input of MCP2515 is connected to pin #28
+//    SO output of MCP2515 is connected to pin #39
 //——————————————————————————————————————————————————————————————————————————————
 
-static const byte MCP2515_SCK  = 26 ; // SCK input of MCP2517 
-static const byte MCP2515_MOSI = 19 ; // SDI input of MCP2517  
-static const byte MCP2515_MISO = 18 ; // SDO output of MCP2517 
+static const byte MCP2515_SCK = 27 ; // SCK input of MCP2515
+static const byte MCP2515_SI  = 28 ; // SI input of MCP2515
+static const byte MCP2515_SO  = 39 ; // SO output of MCP2515
 
-static const byte MCP2515_CS  = 17 ; // CS input of MCP2515 (adapt to your design) 
-static const byte MCP2515_INT =  0 ; // INT output of MCP2515 (adapt to your design)
+static const byte MCP2515_CS  = 20 ; // CS input of MCP2515
 
 //——————————————————————————————————————————————————————————————————————————————
 //  MCP2515 Driver object
 //——————————————————————————————————————————————————————————————————————————————
 
-ACAN2515 can (MCP2515_CS, SPI, MCP2515_INT) ;
+ACAN2515 can (MCP2515_CS, SPI, 255) ; // Last argument is 255 -> no interrupt pin
 
 //——————————————————————————————————————————————————————————————————————————————
 //  MCP2515 Quartz: adapt to your design
 //——————————————————————————————————————————————————————————————————————————————
 
-static const uint32_t QUARTZ_FREQUENCY = 20UL * 1000UL * 1000UL ; // 20 MHz
+static const uint32_t QUARTZ_FREQUENCY = 16 * 1000 * 1000 ; // 16 MHz
 
 //——————————————————————————————————————————————————————————————————————————————
 //   SETUP
@@ -55,19 +40,36 @@ void setup () {
   pinMode (LED_BUILTIN, OUTPUT) ;
   digitalWrite (LED_BUILTIN, HIGH) ;
 //--- Start serial
-  Serial.begin (115200) ;
+  Serial.begin (38400) ;
 //--- Wait for serial (blink led at 10 Hz during waiting)
   while (!Serial) {
     delay (50) ;
     digitalWrite (LED_BUILTIN, !digitalRead (LED_BUILTIN)) ;
   }
-//--- Begin SPI
-  SPI.begin (MCP2515_SCK, MCP2515_MISO, MCP2515_MOSI) ;
+//--- Define alternate pins for SPI0 (see https://www.pjrc.com/teensy/td_libs_SPI.html)
+//    These settings are defined by Teensyduino for Teensy 3.x
+  Serial.print ("Using pin #") ;
+  Serial.print (MCP2515_SI) ;
+  Serial.print (" for MOSI: ") ;
+  Serial.println (SPI.pinIsMOSI (MCP2515_SI) ? "yes" : "NO!!!") ;
+  Serial.print ("Using pin #") ;
+  Serial.print (MCP2515_SO) ;
+  Serial.print (" for MISO: ") ;
+  Serial.println (SPI.pinIsMISO (MCP2515_SO) ? "yes" : "NO!!!") ;
+  Serial.print ("Using pin #") ;
+  Serial.print (MCP2515_SCK) ;
+  Serial.print (" for SCK: ") ;
+  Serial.println (SPI.pinIsSCK (MCP2515_SCK) ? "yes" : "NO!!!") ;
+  SPI.setMOSI (MCP2515_SI) ;
+  SPI.setMISO (MCP2515_SO) ;
+  SPI.setSCK (MCP2515_SCK) ;
+//--- Configure SPI
+  SPI.begin () ;
 //--- Configure ACAN2515
   Serial.println ("Configure ACAN2515") ;
-  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125UL * 1000UL) ; // CAN bit rate 125 kb/s
+  ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ; // CAN bit rate 125 kb/s
   settings.mRequestedMode = ACAN2515Settings::LoopBackMode ; // Select loopback mode
-  const uint16_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
+  const uint32_t errorCode = can.begin (settings, NULL) ; // Second argument is NULL -> no interrupt service routine
   if (errorCode == 0) {
     Serial.print ("Bit Rate prescaler: ") ;
     Serial.println (settings.mBitRatePrescaler) ;
@@ -77,7 +79,7 @@ void setup () {
     Serial.println (settings.mPhaseSegment1) ;
     Serial.print ("Phase segment 2: ") ;
     Serial.println (settings.mPhaseSegment2) ;
-    Serial.print ("SJW: ") ;
+    Serial.print ("SJW:") ;
     Serial.println (settings.mSJW) ;
     Serial.print ("Triple Sampling: ") ;
     Serial.println (settings.mTripleSampling ? "yes" : "no") ;
@@ -95,37 +97,34 @@ void setup () {
   }
 }
 
-//——————————————————————————————————————————————————————————————————————————————
-//   LOOP
-//——————————————————————————————————————————————————————————————————————————————
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
-static unsigned gBlinkLedDate = 0 ;
-static unsigned gReceivedFrameCount = 0 ;
-static unsigned gSentFrameCount = 0 ;
-
-static const unsigned MESSAGE_COUNT = 100 * 1000 ;
+static uint32_t gBlinkLedDate = 0 ;
+static uint32_t gReceivedFrameCount = 0 ;
+static uint32_t gSentFrameCount = 0 ;
 
 //——————————————————————————————————————————————————————————————————————————————
 
 void loop () {
-  if (gBlinkLedDate < millis ()) {
-    gBlinkLedDate += 500 ;
-    digitalWrite (LED_BUILTIN, !digitalRead (LED_BUILTIN)) ;
-    Serial.print ("Sent: ") ;
-    Serial.println (gSentFrameCount) ;
-    Serial.print ("Received: ") ;
-    Serial.println (gReceivedFrameCount) ;
-  }
+  can.poll () ; // No interrupt, call this function as often as possible
   CANMessage frame ;
-  if (gSentFrameCount < MESSAGE_COUNT) {
+  if (gBlinkLedDate < millis ()) {
+    gBlinkLedDate += 2000 ;
+    digitalWrite (LED_BUILTIN, !digitalRead (LED_BUILTIN)) ;
     const bool ok = can.tryToSend (frame) ;
     if (ok) {
       gSentFrameCount += 1 ;
+      Serial.print ("Sent: ") ;
+      Serial.println (gSentFrameCount) ;
+    }else{
+      Serial.println ("Send failure") ;
     }
   }
   if (can.available ()) {
     can.receive (frame) ;
     gReceivedFrameCount ++ ;
+    Serial.print ("Received: ") ;
+    Serial.println (gReceivedFrameCount) ;
   }
 }
 

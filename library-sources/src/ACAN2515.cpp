@@ -162,15 +162,30 @@ uint16_t ACAN2515::beginWithoutFilterCheck (const ACAN2515Settings & inSettings,
                                             const ACAN2515AcceptanceFilter inAcceptanceFilters [],
                                             const uint8_t inAcceptanceFilterCount) {
   uint16_t errorCode = 0 ; // Means no error
-//----------------------------------- check mINT has interrupt capability
+//----------------------------------- Check mINT has interrupt capability
   const int8_t itPin = digitalPinToInterrupt (mINT) ;
-  if (itPin == NOT_AN_INTERRUPT) {
+  if ((mINT != 255) && (itPin == NOT_AN_INTERRUPT)) {
     errorCode = kINTPinIsNotAnInterrupt ;
   }
-//----------------------------------- Check isr is not NULL
-  if (inInterruptServiceRoutine == NULL) {
+//----------------------------------- Check interrupt service routine is not null
+  if ((mINT != 255) && (inInterruptServiceRoutine == NULL)) {
     errorCode |= kISRIsNull ;
   }
+//----------------------------------- Check consistency between ISR and INT pin
+  if ((mINT == 255) && (inInterruptServiceRoutine != NULL)) {
+    errorCode |= kISRNotNullAndNoIntPin ;
+  }
+
+
+//----------------------------------- check mINT has interrupt capability
+//   const int8_t itPin = digitalPinToInterrupt (mINT) ;
+//   if (itPin == NOT_AN_INTERRUPT) {
+//     errorCode = kINTPinIsNotAnInterrupt ;
+//   }
+//----------------------------------- Check isr is not NULL
+//   if (inInterruptServiceRoutine == NULL) {
+//     errorCode |= kISRIsNull ;
+//   }
 //----------------------------------- if no error, configure port and MCP2515
   if (errorCode == 0) {
   //--- Configure ports
@@ -434,6 +449,28 @@ uint16_t ACAN2515::internalBeginOperation (const ACAN2515Settings & inSettings,
 //-----------------------------------
   return errorCode ;
 }
+
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+//    POLLING (ESP32)
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+#ifdef ARDUINO_ARCH_ESP32
+  void ACAN2515::poll (void) {
+    xSemaphoreGive (mISRSemaphore) ;
+  }
+#endif
+
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+//    POLLING (other than ESP32)
+//——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+#ifndef ARDUINO_ARCH_ESP32
+  void ACAN2515::poll (void) {
+    noInterrupts () ;
+      while (isr_core ()) {}
+    interrupts () ;
+  }
+#endif
 
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 //   INTERRUPT SERVICE ROUTINE (ESP32)

@@ -54,6 +54,7 @@ class ACAN2515 {
   public: static const uint16_t kCannotAllocateTransmitBuffer0 = 1 << 10 ;
   public: static const uint16_t kCannotAllocateTransmitBuffer1 = 1 << 11 ;
   public: static const uint16_t kCannotAllocateTransmitBuffer2 = 1 << 12 ;
+  public: static const uint32_t kISRNotNullAndNoIntPin         = 1 << 13 ;
 
 //--- Receiving messages
   public: bool available (void) ;
@@ -106,6 +107,13 @@ class ACAN2515 {
     return mTransmitBuffer [inIndex].peakCount () ;
   }
   private: void internalSendMessage (const CANMessage & inFrame, const uint8_t inTXB) ;
+
+//······················································································································
+//    Polling
+//······················································································································
+
+  public: void poll (void) ;
+
 
 //--- Private methods
   private: inline void select (void) { digitalWrite (mCS, LOW) ; }

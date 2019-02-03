@@ -61,6 +61,15 @@ def compileArduinoSketchTeensy35 (scriptDir, sketch) :
 
 #------------------------------------------------------------------------------*
 
+def compileArduinoSketchAdafruitFeatherM0 (scriptDir, sketch) :
+  compileArduinoSketch (
+    scriptDir,
+    sketch,
+    "adafruit:samd:adafruit_feather_m0"
+  )
+
+#------------------------------------------------------------------------------*
+
 def compileArduinoSketchESP32 (scriptDir, sketch) :
   compileArduinoSketch (
     scriptDir,
@@ -74,13 +83,17 @@ def compileArduinoSketchESP32 (scriptDir, sketch) :
 scriptDir = os.path.dirname (os.path.abspath (sys.argv [0]))
 os.chdir (scriptDir)
 #--- Compile sketches
-compileArduinoSketchTeensy35 (scriptDir, "TestWithACAN")
 compileArduinoSketchTeensy35 (scriptDir, "LoopBackDemo")
+compileArduinoSketchAdafruitFeatherM0 (scriptDir, "LoopBackDemoAdafruitFeatherM0")
 compileArduinoSketchTeensy35 (scriptDir, "LoopBackDemoBitRateSettings")
-compileArduinoSketchTeensy35 (scriptDir, "LoopBackFilterDataByte")
-compileArduinoSketchTeensy35 (scriptDir, "LoopBackUsingFilters")
 compileArduinoSketchESP32 (scriptDir, "LoopBackDemoESP32")
 compileArduinoSketchESP32 (scriptDir, "LoopBackDemoESP32-intensive")
+compileArduinoSketchESP32 (scriptDir, "LoopBackDemoESP32-no-int")
+compileArduinoSketchTeensy35 (scriptDir, "LoopBackDemoTeensy3x")
+compileArduinoSketchTeensy35 (scriptDir, "LoopBackDemoTeensy3x-no-int")
+compileArduinoSketchTeensy35 (scriptDir, "LoopBackFilterDataByte")
+compileArduinoSketchTeensy35 (scriptDir, "LoopBackUsingFilters")
+compileArduinoSketchTeensy35 (scriptDir, "TestWithACAN")
 #--- Compile OSX code
 os.chdir (scriptDir + "/test-ACAN2515Settings-on-desktop")
 runCommand ([

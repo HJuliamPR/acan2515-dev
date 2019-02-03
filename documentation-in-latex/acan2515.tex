@@ -305,7 +305,7 @@
 %                                                                                                                       *
 %-----------------------------------------------------------------------------------------------------------------------*
 
-\title{\bf \Huge{ACAN2515 library for Arduino\\Version 1.1.1}}
+\title{\bf \Huge{ACAN2515 library for Arduino\\Version 1.1.2}}
 \author{Pierre Molinaro}
 \date {\today}
 
@@ -331,6 +331,8 @@
   \small
   \begin{tabular}{llp{11cm}}
     \textbf{Version} & \textbf{Date} & \textbf{Comment}\\
+    1.1.2 & February 3, 2019 & New option: no interrupt pin (\refSubsectionPage{noInterruptPin}). \\
+          &                  & First release running on ESP32 (\refSubsectionPage{connectionESP32}). \\
     1.1.1 & January 20, 2019 & Updated documentation (\refSubsectionPage{defautFilterBehaviour}), as \texttt{mRolloverEnable} is \texttt{true} by default (thanks to PatrykSSS for reporting this documentation error).\\
           &                   & Added \texttt{ACAN2515::receiveBufferPeakCount} method, forgotten in previous releases (thanks to qwec01 for reporting this bug)\\
           &                   & New error flag: \texttt{kCannotAllocateReceiveBuffer}, \refSubsubsectionPage{kCannotAllocateReceiveBuffer}\\
@@ -904,6 +906,206 @@ void setup () {
 
 
 
+\subsectionLabel{Connecting to an ESP32}{connectionESP32}
+
+{\bf Demo sketches: } \texttt{LoopBackDemoESP32} and \texttt{LoopBackESP32-intensive}. See also the ESP32 demo sketch \texttt{SPI\_Multiple\_Busses}.
+
+{\bf Link:} \url{https://randomnerdtutorials.com/esp32-pinout-reference-gpios/}
+
+Two ESP32 SPI busses are available in Arduino, \texttt{HSPI} and \texttt{VSPI}. By default, Arduino SPI is \texttt{VSPI}. The ESP32 default pins are given in \refTableau{ESP32SPIdefaultPins}.
+
+
+\begin{table}[!ht]
+  \small
+  \onehalfspacing
+  \centering
+  \begin{tabular}{lllll}
+    \textbf{Port} & \textbf{SCK} & \textbf{MOSI} & \textbf{MISO}\\
+    \texttt{VSPI} & \texttt{IO18} & \texttt{IO23} & \texttt{IO19}\\
+    \texttt{HSPI} & \texttt{IO14} & \texttt{IO13} & \texttt{IO12}\\
+  \end{tabular}
+  \caption{ESP32 SPI default pins}
+  \labelTableau{ESP32SPIdefaultPins}
+\end{table}
+
+
+
+\subsubsection{Connecting \texttt{MCP2515\_CS} and \texttt{MCP2515\_INT}}
+ For \texttt{MCP2515\_CS}, you can use any port that can be configured as digital output. \texttt{ACAN2515} does not support hardware chip select. For \texttt{MCP2515\_INT}, you can use any port that can be configured as digital input, as ESP32 provides interrupt capability on any input pin.
+  
+{\bf Note.} \texttt{IO34} to \texttt{IO39} are input only pins, without internal pullup or pulldown. So you cannot use theses pins for \texttt{MCP2515\_CS}.
+
+
+
+
+
+
+
+\subsubsection{Using \texttt{SPI}}
+  Default \texttt{SPI} (i.e. \texttt{VSPI}) pins are: SCK=18, MISO=19, MOSI=23 (\refFigure{}{figureASP32DefaultVSPIPins}).
+  
+\begin{figure}[!ht]
+  \small
+  \centering
+  \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
+  %--- Microcontroller
+    \draw[very thick, fill=lightgray!25] (-1.5, 0) -- ++(5.5, 0)  -- ++(0, 3) -- ++ (-5.5, 0) ;
+    \draw (-1.5, 1.5) node[right] {\bf\emph{ESP32}};
+  %--- MCP2515
+    \draw[very thick, fill=lightgray!25] (12, 0) -- ++(-4, 0)  -- ++(0, 3) -- ++ (4, 0) ;
+    \draw (10.5, 1.5) node {\bf\emph{MCP2515}};
+  %--- INT
+    \draw[<-, thick] (4, 2.5) -- ++ (4, 0) ;
+    \draw (8, 2.5) node[right] {$\overline{\tt INT}$};
+    \draw (4, 2.5) node[left] {\tt MCP2515\_INT};
+%    \draw (4, 2.5) node[above right] {\tt 5};
+    \draw [thick, dotted] (4.5, 2.5) -- ++ (0, 0.25) -- ++ (1.5, 0) ;
+    \draw (6, 2.75) node[right] {\tt Vcc};
+    \draw[fill=white] (4.75, 2.625) rectangle ++ (1, 0.25) ;
+    \draw (5.25, 2.75) node {\tiny$10k\Omega$};
+    \draw[fill] (4.5, 2.5) circle (1.5pt) ;
+  %--- CS
+    \draw[->, thick] (4, 2) -- ++ (4, 0) ;
+    \draw (8, 2) node[right] {\tt nCS};
+    \draw (4, 2) node[left] {\tt MCP2515\_CS};
+%    \draw (4, 2) node[above right] {\tt 6};
+    \draw [thick] (7.5, 2) -- ++ (0, 0.25) -- ++ (-1.5, 0) ;
+    \draw (6, 2.25) node[left] {\tt Vcc};
+    \draw[fill=white] (6.25, 2.125) rectangle ++ (1, 0.25) ;
+    \draw (6.75, 2.25) node {\tiny$10k\Omega$};
+    \draw[fill] (7.5, 2) circle (1.5pt) ;
+  %--- SCK
+    \draw[->, thick] (4, 1.5) -- ++ (4, 0) ;
+    \draw (8, 1.5) node[right] {\tt SCK};
+    \draw (4, 1.5) node[left] {\tt SCK};
+    \draw (4, 1.5) node[above right] {\tt 18};
+  %--- SI
+    \draw[->, thick] (4, 1) -- ++ (4, 0) ;
+    \draw (8, 1) node[right] {\tt SDI};
+    \draw (4, 1) node[left] {\tt MOSI};
+    \draw (4, 1) node[above right] {\tt 23};
+  %--- SO
+    \draw[<-, thick] (4, .5) -- ++ (4, 0) ;
+    \draw (8, .5) node[right] {\tt SDO};
+    \draw (4, .5) node[left] {\tt MISO};
+    \draw (4, .5) node[above right] {\tt 19};
+  \end{tikzpicture}
+  \caption{Using VSPI default pins on an ESP32}
+  \labelFigure{figureASP32DefaultVSPIPins}
+\end{figure}
+
+  
+You can change the default pins with additional arguments (up to three) for \texttt{SPI.begin} :
+{ \small\begin{lstlisting}[language=c++]
+  SPI.begin (SCK_PIN) ; // Uses MISO and MOSI default pins
+\end{lstlisting}}
+or
+{ \small\begin{lstlisting}[language=c++]
+  SPI.begin (SCK_PIN, MISO_PIN) ; // Uses MOSI default pin
+\end{lstlisting}}
+or
+{ \small\begin{lstlisting}[language=c++]
+  SPI.begin (SCK_PIN, MISO_PIN, MOSI_PIN) ;
+\end{lstlisting}}
+
+Note that \texttt{SPI.begin} accepts a fourth argument, for \texttt{CS} pin. Do not use this feature with \texttt{ACAN2517}.
+
+\subsubsection{Using \texttt{HSPI}}
+
+The ESP32 demo sketch \texttt{SPI\_Multiple\_Busses} shows how to use both \texttt{HSPI} and  \texttt{VSPI}. However for \texttt{ACAN2517}, we proceed in a slightly different way:
+{ \small\begin{lstlisting}[language=c++]
+#include <SPI.h>
+....
+SPIClass hspi (HSPI) ;
+ACAN2515 can (MCP2515_CS, hspi, MCP2515_INT) ;
+....
+void setup () {
+  ....
+  hspi.begin () ; // You can also add parameters for not using default pins
+  ....
+}
+\end{lstlisting}}
+
+You declare the \texttt{hspi} object before declaring the \texttt{can} object. You can change the \texttt{hspi} name, the important point is the \texttt{HSPI} argument that specifies the HSPI bus. Then, instead of using the \texttt{SPI} name, you use the \texttt{hspi} name in:
+\begin{itemize}
+  \item \texttt{can} object declaration;
+  \item in begin SPI instruction.
+\end{itemize}
+
+See the \texttt{LoopBackESP32-intensive} sketch for an example with \texttt{VSPI}.
+
+
+
+
+\subsectionLabel{Connection with no interrupt pin}{noInterruptPin}
+
+See the \texttt{LoopBackDemoTeensy3x-no-int} and \texttt{LoopBackDemoESP32-no-int} sketches.
+
+{\bf Note that not using an interruption is only valid if the message throughput is not too high. Received messages are recovered by polling, so the risk of MCP2515 internal buffers overflowing is greater.}
+
+
+\begin{figure}[!ht]
+  \small
+  \centering
+  \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
+  %--- Microcontroller
+    \draw[very thick, fill=lightgray!25] (-1.5, 0) -- ++(5.5, 0)  -- ++(0, 3) -- ++ (-5.5, 0) ;
+%    \draw (-1.5, 1.5) node[right] {\bf\emph{ESP32}};
+  %--- MCP2515
+    \draw[very thick, fill=lightgray!25] (12, 0) -- ++(-4, 0)  -- ++(0, 3) -- ++ (4, 0) ;
+    \draw (10.5, 1.5) node {\bf\emph{MCP2515}};
+  %--- INT
+    \draw[thick] (7.75, 2.5) -- ++ (.25, 0) ;
+    \draw (8, 2.5) node[right] {$\overline{\tt INT}$};
+    \draw (7.75, 2.5) node[left] {\tt nc};
+  %--- CS
+    \draw[->, thick] (4, 2) -- ++ (4, 0) ;
+    \draw (8, 2) node[right] {\tt nCS};
+    \draw (4, 2) node[left] {\tt MCP2515\_CS};
+    \draw [thick] (7.5, 2) -- ++ (0, 0.25) -- ++ (-1.5, 0) ;
+    \draw (6, 2.25) node[left] {\tt Vcc};
+    \draw[fill=white] (6.25, 2.125) rectangle ++ (1, 0.25) ;
+    \draw (6.75, 2.25) node {\tiny$10k\Omega$};
+    \draw[fill] (7.5, 2) circle (1.5pt) ;
+  %--- SCK
+    \draw[->, thick] (4, 1.5) -- ++ (4, 0) ;
+    \draw (8, 1.5) node[right] {\tt SCK};
+    \draw (4, 1.5) node[left] {\tt SCK};
+  %--- SI
+    \draw[->, thick] (4, 1) -- ++ (4, 0) ;
+    \draw (8, 1) node[right] {\tt SDI};
+    \draw (4, 1) node[left] {\tt MOSI};
+  %--- SO
+    \draw[<-, thick] (4, .5) -- ++ (4, 0) ;
+    \draw (8, .5) node[right] {\tt SDO};
+    \draw (4, .5) node[left] {\tt MISO};
+  \end{tikzpicture}
+  \caption{Connection with no interrupt pin}
+  \labelFigure{connectionWithNoInterruptPin}
+\end{figure}
+
+For not using the interrupt signal, you should adapt your sketch as following:
+\begin{enumerate}
+  \item the last argument of \texttt{can} constructor should be \texttt{255}, meaning no interrupt pin;
+  \item the second argument of \texttt{can.begin} should be \texttt{NULL} (no interrupt service routine);
+  \item in the \texttt{loop} function, you should call \texttt{can.poll} as often as possible.
+\end{enumerate}
+
+
+{ \small\begin{lstlisting}[language=c++]
+ACAN2515 can (MCP2515_CS, SPI, 255) ; // Last argument is 255 -> no interrupt pin
+
+void setup () {
+  ...
+  const uint32_t errorCode = can.begin (settings, NULL) ; // ISR is null
+  ...
+}
+
+void loop () {
+  can.poll () ;
+  ...
+}
+\end{lstlisting}}
 
 
 
@@ -1543,6 +1745,7 @@ The \texttt{ACAN2515::begin} method returns an error code. The value \texttt{0} 
     \texttt{10} & \texttt{kCannotAllocateTransmitBuffer0} & \refSubsubsectionPage{kCannotAllocateTransmitBuffer0}\\
     \texttt{11} & \texttt{kCannotAllocateTransmitBuffer1} & \refSubsubsectionPage{kCannotAllocateTransmitBuffer1}\\
     \texttt{12} & \texttt{kCannotAllocateTransmitBuffer2} & \refSubsubsectionPage{kCannotAllocateTransmitBuffer2}\\
+    \texttt{13} & \texttt{kISRNotNullAndNoIntPin}         & \refSubsubsectionPage{kISRNotNullAndNoIntPin} \\
   \end{tabular}
   \caption{The \texttt{ACAN2515::begin} method error code bits}
   \labelTableau{beginErrorCode}
@@ -1659,6 +1862,35 @@ There is not enough RAM left to allocate the transmit buffer 2. Try to reduce it
 
 Note a memory overflow is not always detected properly: dynamic allocation can be successful, leaving too little memory available for a later allocation of automatic variables, which can cause a crash.
 
+
+
+
+
+\subsubsectionLabel{\texttt{kISRNotNullAndNoIntPin}}{kISRNotNullAndNoIntPin}
+
+This error occurs when you have no \texttt{INT} pin, and a not-null interrupt service routine: 
+{ \small\begin{lstlisting}[language=c++]
+ACAN2515 can (MCP2515_CS, SPI, 255) ; // Last argument is 255 -> no interrupt pin
+
+void setup () {
+  ...
+  const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ; // ISR is not null
+  ...
+}
+\end{lstlisting}}
+
+Interrupt service routine should be \texttt{NULL} if no \texttt{INT} pin is defined:
+{ \small\begin{lstlisting}[language=c++]
+ACAN2515 can (MCP2515_CS, SPI, 255) ; // Last argument is 255 -> no interrupt pin
+
+void setup () {
+  ...
+  const uint32_t errorCode = can.begin (settings, NULL) ; // Ok, ISR is null
+  ...
+}
+\end{lstlisting}}
+
+See the \texttt{LoopBackDemoTeensy3x-no-int} and \texttt{LoopBackDemoESP32-no-int} sketches.
 
 
 

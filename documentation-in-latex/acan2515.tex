@@ -168,6 +168,14 @@
 
 %-----------------------------------------------------------------------------------------------------------------------*
 %                                                                                                                       *
+%   Chiffres entourés (\ding{172} à \ding{211})                                                                         *
+%                                                                                                                       *
+%-----------------------------------------------------------------------------------------------------------------------*
+
+\usepackage{pifont}
+
+%-----------------------------------------------------------------------------------------------------------------------*
+%                                                                                                                       *
 %   E N - T Ê T E S    E T    P I E D S    D E    P A G E S                                                             *
 %                                                                                                                       *
 %-----------------------------------------------------------------------------------------------------------------------*
@@ -305,7 +313,7 @@
 %                                                                                                                       *
 %-----------------------------------------------------------------------------------------------------------------------*
 
-\title{\bf \Huge{ACAN2515 library for Arduino\\Version 1.1.3}}
+\title{\bf \Huge{ACAN2515 library for Arduino\\Version 2.0.0}}
 \author{Pierre Molinaro}
 \date {\today}
 
@@ -325,12 +333,17 @@
 %                                                                                                                       *
 %-----------------------------------------------------------------------------------------------------------------------*
 
+\newpage
 \section{Versions}
 
 \begin{center}
   \small
   \begin{tabular}{llp{11cm}}
     \textbf{Version} & \textbf{Date} & \textbf{Comment}\\
+    2.0.0 & February 19, 2019 & Added \texttt{SleepMode} mode (see \refSubsubsectionPage{mRequestedMode}). \\
+          &                   & Added \texttt{ACAN2515::changeModeOnTheFly} function (\refSectionPage{changeModeOnTheFlyFunction}). \\
+          &                   & Added \texttt{ACAN2515::setFiltersOnTheFly} functions (\refSectionPage{setFiltersOnTheFlyFunction}). \\
+          &                   & Added \texttt{ACAN2515::end} function (\refSectionPage{endFunction}). \\
     1.1.3 & February 4, 2019 & Removed useless instructions in ESP32 sample codes. \\
     1.1.2 & February 3, 2019 & New option: no interrupt pin (\refSubsectionPage{noInterruptPin}). \\
           &                  & First release running on ESP32 (\refSubsectionPage{connectionESP32}). \\
@@ -1098,7 +1111,7 @@ ACAN2515 can (MCP2515_CS, SPI, 255) ; // Last argument is 255 -> no interrupt pi
 
 void setup () {
   ...
-  const uint32_t errorCode = can.begin (settings, NULL) ; // ISR is null
+  const uint16_t errorCode = can.begin (settings, NULL) ; // ISR is null
   ...
 }
 
@@ -1381,7 +1394,7 @@ You can set the \texttt{mRolloverEnable} property of your \texttt{ACAN2515Settin
 
 
 
-\subsection{Defining filters}
+\subsectionLabel{Defining filters}{definingFilters}
 
 {\bf Sample sketch: } the \texttt{loopbackUsingFilters} sketch shows how defining filters.
 
@@ -1409,7 +1422,7 @@ The \texttt{MCP2515} filters cannot be disabled, so all mask registers can be ta
 
 For dealing with all situations, the \texttt{ACAN2515::begin} method accepts three prototypes.
 
-{\bf No filter.}
+\subsubsectionLabel{No filter}{noFilter}
 { \small\begin{lstlisting}[language=c++]
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
   const uint16_t errorCode = can.begin (settings, [] { can.isr () ; }) ;
@@ -1418,7 +1431,9 @@ No filter is provided, \texttt{RXM0} and \texttt{RXM1} are set to $0$, enabling 
 
 
 
-{\bf One filter.} For example:
+\subsubsectionLabel{One filter}{oneFilter}
+
+For example:
 { \small\begin{lstlisting}[language=c++]
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
   const ACAN2515Mask rxm0 = extended2515Mask (0x1FFFFFFF) ;
@@ -1443,7 +1458,9 @@ The definition of a filter is associated with a call back function -- here \text
 
 
 
-{\bf Two filters.} For example:
+\subsubsectionLabel{Two filters}{twoFilters}
+
+For example:
 { \small\begin{lstlisting}[language=c++]
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
   const ACAN2515Mask rxm0 = extended2515Mask (0x1FFFFFFF) ;
@@ -1469,7 +1486,9 @@ Here, two types of message are accepted, extended (data or remote) frames with a
 
 
 
-{\bf Three to five filters.} For example, with four filters:
+\subsubsectionLabel{Three to five filters}{threeToFiveFilters}
+
+For example, with four filters:
 { \small\begin{lstlisting}[language=c++]
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
   const ACAN2515Mask rxm0 = extended2515Mask (0x1FFFFFFF) ;
@@ -1497,7 +1516,7 @@ Four types of message are accepted, extended (data or remote) frames with an ide
 
 
 
-{\bf Six filters.}
+\subsubsectionLabel{Six filters}{sixFilters}
 { \small\begin{lstlisting}[language=c++]
   ACAN2515Settings settings (QUARTZ_FREQUENCY, 125 * 1000) ;
   const ACAN2515Mask rxm0 = extended2515Mask (0x1FFFFFFF) ;
@@ -1529,7 +1548,7 @@ Six types of message are accepted, all filter registers are explicitly defined.
 
 
 
-\subsubsection{Extended frames acceptance}
+\subsection{Extended frames acceptance}
 
 The \texttt{extended2515Mask} and \texttt{extended2515Filter} functions helps you to define extended frame filters. Extended frame filters test extended identifier value.
 
@@ -1572,7 +1591,7 @@ If you define an acceptance filter by \texttt{extended2515Filter (0x12345608)}, 
 
 
 
-\subsubsection{Standard frames acceptance}
+\subsection{Standard frames acceptance}
 
 The \texttt{standard2515Mask} and \texttt{standard2515Filter} functions helps you to define extended frame filters. Standard frame filters test standard identifier value, first and second data byte.
 
@@ -1724,7 +1743,7 @@ And you pass \texttt{canISR} as argument to the \texttt{begin} method:
 
 \subsectionLabel{The error code}{errorCodeMethodBegin}
 
-The \texttt{ACAN2515::begin} method returns an error code. The value \texttt{0} denotes no error. Otherwise, you consider every bit as an error flag, as described in \refTableau{beginErrorCode}. An error code could report several errors. The \texttt{ACAN2515} class defines static constants for naming errors.
+The \texttt{ACAN2515::begin} and \texttt{ACAN2515::setFiltersOnTheFly} methods return an error code. The value \texttt{0} denotes no error. Otherwise, you consider every bit as an error flag, as described in \refTableau{beginErrorCode}. An error code could report several errors. The \texttt{ACAN2515} class defines static constants for naming errors.
 
 
 \begin{table}[!ht]
@@ -1875,7 +1894,7 @@ ACAN2515 can (MCP2515_CS, SPI, 255) ; // Last argument is 255 -> no interrupt pi
 
 void setup () {
   ...
-  const uint32_t errorCode = can.begin (settings, [] { can.isr () ; }) ; // ISR is not null
+  const uint16_t errorCode = can.begin (settings, [] { can.isr () ; }) ; // ISR is not null
   ...
 }
 \end{lstlisting}}
@@ -1886,7 +1905,7 @@ ACAN2515 can (MCP2515_CS, SPI, 255) ; // Last argument is 255 -> no interrupt pi
 
 void setup () {
   ...
-  const uint32_t errorCode = can.begin (settings, NULL) ; // Ok, ISR is null
+  const uint16_t errorCode = can.begin (settings, NULL) ; // Ok, ISR is null
   ...
 }
 \end{lstlisting}}
@@ -1896,6 +1915,269 @@ See the \texttt{LoopBackDemoTeensy3x-no-int} and \texttt{LoopBackDemoESP32-no-in
 
 
 
+
+
+
+
+
+
+
+
+
+\sectionLabel{The \texttt{ACAN2515::changeModeOnTheFly} function}{changeModeOnTheFlyFunction}
+
+{\bf Note. } Available in release 2.0.0 and later.
+
+{ \small\begin{lstlisting}[language=c++]
+uint16_t ACAN2515::
+  changeModeOnTheFly (const ACAN2515Settings::RequestedMode inRequestedMode);
+\end{lstlisting}}
+
+After the library has been initialized by a call to \texttt{ACAN2515::begin} that returns no errors (i.e. zero), you can call this function to change modes on the fly. It returns \texttt{0} if it succeeds. If it fails, it returns the \texttt{kRequestedModeTimeOut} error, indicating that the requested mode cannot be reached within 2 ms (see \refSubsubsectionPage{kRequestedModeTimeOut}).
+
+{\bf Note. } The function preserves contents of the bits 0 ... 4 of the \texttt{CANCTRL} register.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\sectionLabel{The \texttt{ACAN2515::setFiltersOnTheFly} functions}{setFiltersOnTheFlyFunction}
+
+{\bf Note. } Available in release 2.0.0 and later.
+
+There are three \texttt{setFiltersOnTheFly} method prototypes:
+
+{ \small\begin{lstlisting}[language=c++]
+uint16_t ACAN2515::setFiltersOnTheFly (void);
+
+uint16_t ACAN2515::
+  setFiltersOnTheFly (const ACAN2515Mask inRXM0,
+                      const ACAN2515AcceptanceFilter inAcceptanceFilters [],
+                      const uint8_t inAcceptanceFilterCount) ;
+
+uint16_t ACAN2515::
+  setFiltersOnTheFly (const ACAN2515Mask inRXM0,
+                      const ACAN2515Mask inRXM1,
+                      const ACAN2515AcceptanceFilter inAcceptanceFilters [],
+                      const uint8_t inAcceptanceFilterCount) ;
+\end{lstlisting}}
+
+After the library has been initialized by a call to \texttt{ACAN2515::begin} that returns no errors (i.e. zero), you can call this function to change filters on the fly. It returns \texttt{0} if it succeeds. If it fails, it returns a non zero \texttt{uint16\_t} value (see \refSubsectionPage{errorCodeMethodBegin}).
+
+The three \texttt{setFiltersOnTheFly} method prototypes correspond to the three \texttt{begin} method prototypes, they handle filter definition in the same way (see \refSubsectionPage{definingFilters}).
+
+\subsection{No filter}
+{ \small\begin{lstlisting}[language=c++]
+  const uint16_t errorCode = can.setFiltersOnTheFly () ;
+\end{lstlisting}}
+No filter is provided, \texttt{RXM0} and \texttt{RXM1} are set to $0$, enabling the acceptance of all messages by \texttt{RXB0}.
+
+
+
+\subsection{One filter}
+
+For example:
+{ \small\begin{lstlisting}[language=c++]
+  const ACAN2515Mask rxm0 = extended2515Mask (0x1FFFFFFF) ;
+  const ACAN2515AcceptanceFilter filter [] = {
+    {extended2515Filter (0x12345678), receive0} // RXF0
+  } ;
+  const uint16_t errorCode = can.setFiltersOnTheFly (
+                                        rxm0, // Value set to RXM0 register
+                                        filter, // The filter array
+                                        1) ; // Filter array size
+\end{lstlisting}}
+
+Here, one type of message is accepted, extended (data or remote) frames with an identifier equal to \texttt{0x12345678}. This defines explicitly \texttt{RXM0} and \texttt{RXF0}; for disabling acceptance by \texttt{RXF1}, it is set with \texttt{RXF0} value; \texttt{RXM1} is set with \texttt{RXM0} value, and the \texttt{RXF2} to \texttt{RXF5} registers are set with the \texttt{RXF0} value. No message will be accepted by \texttt{RXB1} filters.
+
+The definition of a filter is associated with a call back function -- here \texttt{receive0}. This function is called indirectly when the \texttt{dispatchReceivedMessage} method is called -- see \refSectionPage{UsingDispatchMethod}.
+
+
+
+
+
+
+
+
+\subsection{Two filters}
+
+For example:
+{ \small\begin{lstlisting}[language=c++]
+  const ACAN2515Mask rxm0 = extended2515Mask (0x1FFFFFFF) ;
+  const ACAN2515AcceptanceFilter filters [] = {
+    {extended2515Filter (0x12345678), receive0}, // RXF0
+    {extended2515Filter (0x18765432), receive1}  // RXF1
+  } ;
+  const uint16_t errorCode = can.setFiltersOnTheFly (
+                                        rxm0, // Value set to RXM0 register
+                                        filters, // The filter array
+                                        2) ; // Filter array size
+\end{lstlisting}}
+
+Here, two types of message are accepted, extended (data or remote) frames with an identifier equal to \texttt{0x12345678} or \texttt{0x18765432}. This defines explicitly \texttt{RXM0}, \texttt{RXF0} and \texttt{RXF1}; \texttt{RXM1} is set with \texttt{RXM0} value, and the \texttt{RXF2} to \texttt{RXF5} registers are set with the \texttt{RXF1} value. No message will be accepted by \texttt{RXB1} filters.
+
+
+
+
+
+
+
+
+
+
+\subsection{Three to five filters}
+
+For example, with four filters:
+{ \small\begin{lstlisting}[language=c++]
+  const ACAN2515Mask rxm0 = extended2515Mask (0x1FFFFFFF) ;
+  const ACAN2515Mask rxm1 = standard2515Mask (0x7FF, 0, 0) ;
+  const ACAN2515AcceptanceFilter filters [] = {
+    {extended2515Filter (0x12345678), receive0}, // RXF0
+    {extended2515Filter (0x18765432), receive1}, // RXF1
+    {standard2515Filter (0x567, 0, 0), receive2},// RXF2
+    {standard2515Filter (0x123, 0, 0), receive3} // RXF3
+  } ;
+  const uint16_t errorCode = can.setFiltersOnTheFly (
+                                        rxm0, // Value set to RXM0 register
+                                        rxm1, // Value set to RXM1 register
+                                        filters, // The filter array
+                                        4) ; // Filter array size
+\end{lstlisting}}
+
+Four types of message are accepted, extended (data or remote) frames with an identifier equal to \texttt{0x12345678} or \texttt{0x18765432}, and standard (data or remote) frames with an identifier equal to \texttt{0x567} or \texttt{0x123}. The \texttt{RXF4} and \texttt{RXF5} registers are set with the \texttt{RXF3} value.
+
+
+
+
+
+
+
+
+\subsection{Six filters}
+{ \small\begin{lstlisting}[language=c++]
+  const ACAN2515Mask rxm0 = extended2515Mask (0x1FFFFFFF) ;
+  const ACAN2515Mask rxm1 = standard2515Mask (0x7FF, 0, 0) ;
+  const ACAN2515AcceptanceFilter filters [] = {
+    {extended2515Filter (0x12345678), receive0}, // RXF0
+    {extended2515Filter (0x18765432), receive1}, // RXF1
+    {standard2515Filter (0x567, 0, 0), receive2},// RXF2
+    {standard2515Filter (0x123, 0, 0), receive3},// RXF3
+    {standard2515Filter (0x777, 0, 0), receive4},// RXF4
+    {standard2515Filter (0x3AB, 0, 0), receive5} // RXF5
+  } ;
+  const uint16_t errorCode = can.setFiltersOnTheFly (
+                                        rxm0, // Value set to RXM0 register
+                                        rxm1, // Value set to RXM1 register
+                                        filters, // The filter array
+                                        6) ; // Filter array size
+\end{lstlisting}}
+
+Six types of message are accepted, all filter registers are explicitly defined.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\sectionLabel{The \texttt{ACAN2515::end} method}{endFunction}
+
+{\bf Note. } Available in release 2.0.0 and later.
+
+{ \small\begin{lstlisting}[language=c++]
+void ACAN2515::end (void) ;
+\end{lstlisting}}
+
+After the library has been initialized by a call to \texttt{ACAN2515::begin} that returns no errors (i.e. zero), you can call this function to reset the \texttt{MCP2515}. It also frees the driver transmit and receive buffers, and, if interrupt pin is actually used (i.e. its number is different from 255), detach interrupt from interrupt pin.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\sectionLabel{The \texttt{ACAN2515} instance usage}{canInstanceUsage}
+
+The \texttt{ACAN2515} instance usage graph is given in \refFigure{}{canInstanceUsage}.
+
+
+
+\begin{figure}[!ht]
+%  \small
+  \centering
+  \begin{tikzpicture}[line cap=round, line join=round, >=stealth]
+  %--- Nœuds
+    \node[draw] (NE) at (0, 2) {\bf Non-existent};
+    \node[draw] (IN) at (0,0) {\bf Initialized};
+    \node[draw, diamond] (TE) at (0,-2) {\small Ok?};
+    \node[draw] (OP) at (0,-4) {\bf Operational};
+    \node[draw, diamond] (TO) at (0,-6) {\small Ok?};
+    \node[draw] (IV) at (0,-8) {\bf Invalid};
+  %--- Flèches
+    \draw[->] (NE) to[bend right] node[pos=0.5, left] {(1) Constructor} (IN);
+    \draw[->] (IN) to[bend right] node[pos=0.5, right] {(10) Destructor} (NE);
+    \draw[->] (IN) -- node[pos=0.5, left] {(2) \texttt{begin}} (TE);
+    \draw[->] (TE) -- node[pos=0.5, left] {(3) No error} (OP);
+    \draw[->,color=red] (TE.east) to[bend right,out=-90] node[pos=0.5, right] {\textcolor{red}{(4) Error}} (IN.south east);
+    \draw[->] (OP.east) to[bend right,out=-90,in=-90] node[pos=0.5, right] {(5) \texttt{end}} (IN.east);
+    \draw[->] (OP) -- node[pos=0.5, left] {(6) \texttt{xxxOnTheFly}} (TO);
+    \draw[->] (TO.east) to[bend right,out=-90] node[pos=0.5, right] {(7) No error} (OP.south east);
+    \draw[->,color=red] (TO) -- node[pos=0.5, right] {\textcolor{red}{(8) Error}} (IV);
+    \draw[->] (IV.east) to[bend right,out=-90,in=-90] node[pos=0.5, right] {(9) \texttt{end}} (IN.east);
+  %---
+  \end{tikzpicture}
+  \caption{ACAN2515 instance usage}
+  \labelFigure{canInstanceUsage}
+\end{figure}
+
+The state are:
+\begin{itemize}
+  \item {\bf Non-existent}, the \texttt{can} object does not exist or is not initialized;
+  \item {\bf Initialized}, the \texttt{can} object is initialized;
+  \item {\bf Operational}, the \texttt{can} object is operational, you can use it from communication (functions \texttt{tryToSend}, \texttt{available}, \texttt{receive}, \texttt{dispatchReceivedMessage}, ...); note the actual possibilities depends from the requested mode: in \texttt{ListenOnlyMode} messages cannot be sent; in \texttt{SleepMode} no communication is handled.
+  \item {\bf Invalid}, a call of \texttt{changeModeOnTheFly} or  \texttt{setFiltersOnTheFly} has returned an error, the \texttt{can} object should be reseted by a call to the \texttt{endø} function. 
+\end{itemize}
+
+In many situations, only transitions (1), (2) and (3) are performed.
+
+{ \small\begin{lstlisting}[language=c++]
+// Here, the can object does not exist ("Non-existent" state)
+ACAN2515 can (...) ; // Performs (1)
+// Here, can object is in "Initialized" state
+
+void setup () {
+  ...
+  const uint16_t errorCode = can.begin (...) ; // Performs (2) (3) or (2) (4)
+  // if errorCode is 0, can object is in "Operational" state;
+  // otherwise, it remains in "Initialized" state.
+  ...
+}
+\end{lstlisting}}
 
 
 
@@ -2386,9 +2668,9 @@ By default, its value is $0$, all three \texttt{TXB$i$} registers get the same $
 
 \subsubsectionLabel{The \texttt{mRequestedMode} property}{mRequestedMode}
 
-This property defines the mode requested at this end of the configuration: \texttt{NormalMode} (default value), \texttt{ListenOnlyMode}, \texttt{LoopBackMode}.
+This property defines the mode requested at this end of the configuration: \texttt{NormalMode} (default value), \texttt{ListenOnlyMode}, \texttt{LoopBackMode}, \texttt{SleepMode}.
 
-
+{\bf Note. } \texttt{SleepMode} has been added in release 2.0.0.
 
 
 

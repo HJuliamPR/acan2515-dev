@@ -155,12 +155,13 @@ static void exhaustiveSearchOfAllExactSettings (Set <uint32_t> & ioExactSettingS
 //——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 int main (int /* argc */, const char * /* argv */ []) {
-//  compute (250 * 1000) ;
+  compute (12500) ;
 //  compute (125 * 1000) ;
 //  compute (500 * 1000) ;
 //  compute (1000 * 1000) ;
 //  compute (10 * 1000) ;
 //  compute (842 * 1000) ;
+  compute (444444) ;
   compute (440 * 1000) ;
 //  compute (821 * 1000) ;
   compute (727 * 1000) ;

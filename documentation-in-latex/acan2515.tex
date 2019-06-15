@@ -313,7 +313,7 @@
 %                                                                                                                       *
 %-----------------------------------------------------------------------------------------------------------------------*
 
-\title{\bf \Huge{ACAN2515 library for Arduino\\Version 2.0.1}}
+\title{\bf \Huge{ACAN2515 library for Arduino\\Version 2.0.2}}
 \author{Pierre Molinaro}
 \date {\today}
 
@@ -340,6 +340,8 @@
   \small
   \begin{tabular}{llp{11cm}}
     \textbf{Version} & \textbf{Date} & \textbf{Comment}\\
+    2.0.2 & June 15, 2019 & Added forgotten \texttt{ACAN2515::receiveBufferCount} and \texttt{ACAN2515::receiveBufferSize} methods (thanks to \texttt{Ede2016} for reporting this error). \\
+          &               & ESP32: using \texttt{xSemaphoreGiveFromISR} instead of \texttt{xSemaphoreGive} in interrupt service routine. \\
     2.0.1 & April 19, 2019 & Fixed incorrect \texttt{SJW} setting. \\
     2.0.0 & February 19, 2019 & Added \texttt{SleepMode} mode (see \refSubsubsectionPage{mRequestedMode}). \\
           &                   & Added \texttt{ACAN2515::changeModeOnTheFly} function (\refSectionPage{changeModeOnTheFlyFunction}). \\
@@ -348,8 +350,8 @@
     1.1.3 & February 4, 2019 & Removed useless instructions in ESP32 sample codes. \\
     1.1.2 & February 3, 2019 & New option: no interrupt pin (\refSubsectionPage{noInterruptPin}). \\
           &                  & First release running on ESP32 (\refSubsectionPage{connectionESP32}). \\
-    1.1.1 & January 20, 2019 & Updated documentation (\refSubsectionPage{defautFilterBehaviour}), as \texttt{mRolloverEnable} is \texttt{true} by default (thanks to PatrykSSS for reporting this documentation error).\\
-          &                   & Added \texttt{ACAN2515::receiveBufferPeakCount} method, forgotten in previous releases (thanks to qwec01 for reporting this bug)\\
+    1.1.1 & January 20, 2019 & Updated documentation (\refSubsectionPage{defautFilterBehaviour}), as \texttt{mRolloverEnable} is \texttt{true} by default (thanks to \texttt{PatrykSSS} for reporting this documentation error).\\
+          &                   & Added \texttt{ACAN2515::receiveBufferPeakCount} method, forgotten in previous releases (thanks to \texttt{qwec01} for reporting this bug)\\
           &                   & New error flag: \texttt{kCannotAllocateReceiveBuffer}, \refSubsubsectionPage{kCannotAllocateReceiveBuffer}\\
           &                   & New error flag: \texttt{kCannotAllocateTransmitBuffer0}, \refSubsubsectionPage{kCannotAllocateTransmitBuffer0}\\
           &                   & New error flag: \texttt{kCannotAllocateTransmitBuffer1}, \refSubsubsectionPage{kCannotAllocateTransmitBuffer1}\\

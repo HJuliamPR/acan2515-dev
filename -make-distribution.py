@@ -36,7 +36,7 @@ def compileArduinoSketch (scriptDir, sketch, platform) :
     "-logger=machine",
     "-hardware", "/Applications/Arduino.app/Contents/Java/hardware",
     "-hardware", "/Users/pierremolinaro/Library/Arduino15/packages",
-    "-hardware", "/Users/pierremolinaro/Documents/Arduino/hardware",
+#     "-hardware", "/Users/pierremolinaro/Documents/Arduino/hardware",
     "-tools", "/Applications/Arduino.app/Contents/Java/tools-builder",
     "-tools", "/Applications/Arduino.app/Contents/Java/hardware/tools/avr",
     "-tools", "/Users/pierremolinaro/Library/Arduino15/packages",

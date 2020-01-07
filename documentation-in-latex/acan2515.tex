@@ -4,7 +4,7 @@
 % Le script utilisé pour compiler est :
 %       xelatex --file-line-error --shell-escape --synctex=1
 
-\documentclass[10pt, a4paper, obeyspaces]{extarticle}
+\documentclass[9pt, a4paper, obeyspaces]{extarticle}
 % L'option 'openany' permet de démarrer un chapitre sur une page paire
 
 % L'option 'obeyspaces' indique au paquetage hyperref de respecter les espaces dans les chemins \path ou \url.
@@ -25,9 +25,9 @@
 % http://www.tuteurs.ens.fr/logiciels/latex/xetex.html
 \RequirePackage{etex}
 \usepackage{fontspec}
-%\setmainfont{Georgia}[Ligatures=TeX]
-%\setsansfont{Courier}[Ligatures=NoCommon,Scale=0.95]
-%\setmonofont{Courier}[Ligatures=NoCommon,Scale=0.95]
+\setmainfont{Verdana}[Ligatures=TeX]
+\setmonofont{Menlo}[Ligatures=NoCommon] % , Scale=0.95]
+\setsansfont{Menlo}[Ligatures=NoCommon] %, Scale=0.95]
 
 %-----------------------------------------------------------------------------------------------------------------------*
 %                                                                                                                       *
@@ -313,7 +313,7 @@
 %                                                                                                                       *
 %-----------------------------------------------------------------------------------------------------------------------*
 
-\title{\bf \Huge{ACAN2515 library for Arduino\\Version 2.0.2}}
+\title{\bf \Huge{ACAN2515 library for Arduino\\Version 2.0.3}}
 \author{Pierre Molinaro}
 \date {\today}
 
@@ -340,6 +340,7 @@
   \small
   \begin{tabular}{llp{11cm}}
     \textbf{Version} & \textbf{Date} & \textbf{Comment}\\
+    2.0.3 & January 7, 2020 & Interrupt pin is attached by \texttt{ACAN2515::beginWithoutFilterCheck} method only when there is configuration error (thanks to \texttt{mvSarma} for reporting this error). \\
     2.0.2 & June 15, 2019 & Added forgotten \texttt{ACAN2515::receiveBufferCount} and \texttt{ACAN2515::receiveBufferSize} methods (thanks to \texttt{Ede2016} for reporting this error). \\
           &               & ESP32: using \texttt{xSemaphoreGiveFromISR} instead of \texttt{xSemaphoreGive} in interrupt service routine. \\
     2.0.1 & April 19, 2019 & Fixed incorrect \texttt{SJW} setting. \\
@@ -351,21 +352,21 @@
     1.1.2 & February 3, 2019 & New option: no interrupt pin (\refSubsectionPage{noInterruptPin}). \\
           &                  & First release running on ESP32 (\refSubsectionPage{connectionESP32}). \\
     1.1.1 & January 20, 2019 & Updated documentation (\refSubsectionPage{defautFilterBehaviour}), as \texttt{mRolloverEnable} is \texttt{true} by default (thanks to \texttt{PatrykSSS} for reporting this documentation error).\\
-          &                   & Added \texttt{ACAN2515::receiveBufferPeakCount} method, forgotten in previous releases (thanks to \texttt{qwec01} for reporting this bug)\\
-          &                   & New error flag: \texttt{kCannotAllocateReceiveBuffer}, \refSubsubsectionPage{kCannotAllocateReceiveBuffer}\\
-          &                   & New error flag: \texttt{kCannotAllocateTransmitBuffer0}, \refSubsubsectionPage{kCannotAllocateTransmitBuffer0}\\
-          &                   & New error flag: \texttt{kCannotAllocateTransmitBuffer1}, \refSubsubsectionPage{kCannotAllocateTransmitBuffer1}\\
-          &                   & New error flag: \texttt{kCannotAllocateTransmitBuffer2}, \refSubsubsectionPage{kCannotAllocateTransmitBuffer2}\\
-    1.1.0 & November 24, 2018 & \texttt{ACAN2515Settings::CANBitSettingConsistency} now returns an \texttt{uint16\_t} \\
-          &                   & Compatibility with \texttt{ACAN2515Tiny} library\\
-    1.0.4 & November 23, 2018 & BugFix: transmit buffer \#2 size setting \\
-          &                   & Transmit and send buffers properties are now \texttt{uint16\_t} (instead of \texttt{uint32\_t}), for saving memory \\
-          &                   & \texttt{ACAN2515::begin} now returns an \texttt{uint16\_t} (instead of \texttt{uint32\_t})\\
-          &                   & New \texttt{ACAN2515Settings} constructor with explicit bit rate settings (see \refSubsectionPage{explicitCANbitSettings} and \texttt{LoopBackDemoBitRateSettings} demo sketch)\\
-    1.0.3 & November 3, 2018 & Correct setting of \texttt{rtr} and \texttt{ext} properties on message receive (thanks to Arjan-Woltjer for having fixed this bug, \url{https://github.com/pierremolinaro/acan2515/pull/1}) \\
-    1.0.1 & October 23, 2018 & Workaround external interrupt masking for Teensy 3.5 / 3.6\\
-          &                  & Use of a lambda function for interrupt service routine \\
-    1.0.0 & October 12, 2018 & Initial release \\
+          &                   & Added \texttt{ACAN2515::receiveBufferPeakCount} method, forgotten in previous releases (thanks to \texttt{qwec01} for reporting this bug).\\
+          &                   & New error flag: \texttt{kCannotAllocateReceiveBuffer}, \refSubsubsectionPage{kCannotAllocateReceiveBuffer}.\\
+          &                   & New error flag: \texttt{kCannotAllocateTransmitBuffer0}, \refSubsubsectionPage{kCannotAllocateTransmitBuffer0}.\\
+          &                   & New error flag: \texttt{kCannotAllocateTransmitBuffer1}, \refSubsubsectionPage{kCannotAllocateTransmitBuffer1}.\\
+          &                   & New error flag: \texttt{kCannotAllocateTransmitBuffer2}, \refSubsubsectionPage{kCannotAllocateTransmitBuffer2}.\\
+    1.1.0 & November 24, 2018 & \texttt{ACAN2515Settings::CANBitSettingConsistency} now returns an \texttt{uint16\_t}. \\
+          &                   & Compatibility with \texttt{ACAN2515Tiny} library.\\
+    1.0.4 & November 23, 2018 & BugFix: transmit buffer \#2 size setting. \\
+          &                   & Transmit and send buffers properties are now \texttt{uint16\_t} (instead of \texttt{uint32\_t}), for saving memory. \\
+          &                   & \texttt{ACAN2515::begin} now returns an \texttt{uint16\_t} (instead of \texttt{uint32\_t}).\\
+          &                   & New \texttt{ACAN2515Settings} constructor with explicit bit rate settings (see \refSubsectionPage{explicitCANbitSettings} and \texttt{LoopBackDemoBitRateSettings} demo sketch).\\
+    1.0.3 & November 3, 2018 & Correct setting of \texttt{rtr} and \texttt{ext} properties on message receive (thanks to Arjan-Woltjer for having fixed this bug, \url{https://github.com/pierremolinaro/acan2515/pull/1}). \\
+    1.0.1 & October 23, 2018 & Workaround external interrupt masking for Teensy 3.5 / 3.6.\\
+          &                  & Use of a lambda function for interrupt service routine. \\
+    1.0.0 & October 12, 2018 & Initial release. \\
   \end{tabular}
 \end{center}
 
@@ -1558,7 +1559,7 @@ The \texttt{extended2515Mask} and \texttt{extended2515Filter} functions helps yo
 The acceptance criterion is\footnote{See DS20001801H, section 4.5 \emph{Message Acceptance Filters and Masks}, page 33.}:
 
 \begin{center}
-\texttt{acceptance\_mask} \& (\texttt{received\_identifier} \texttt{nXOR} \texttt{acceptance\_filter}) == 0
+\texttt{acceptance\_mask} {\bf \&} (\texttt{received\_identifier} \texttt{\bf nXOR} \texttt{acceptance\_filter}) == 0
 \end{center}
 where \& is the bit-wise \emph{and} operator, and \texttt{nXOR} is the \emph{not xor} bit-wise operator.
 

@@ -26,8 +26,8 @@
 \RequirePackage{etex}
 \usepackage{fontspec}
 \setmainfont{Verdana}[Ligatures=TeX]
-\setmonofont{Menlo}[Ligatures=NoCommon] % , Scale=0.95]
-\setsansfont{Menlo}[Ligatures=NoCommon] %, Scale=0.95]
+\setmonofont{Courier}[Ligatures=NoCommon, Scale=0.95]
+\setsansfont{Courier}[Ligatures=NoCommon, Scale=0.95]
 
 %-----------------------------------------------------------------------------------------------------------------------*
 %                                                                                                                       *
@@ -118,7 +118,7 @@
   commentstyle=\color{red},
   stringstyle=\color{orange},
   frame=l,
-  backgroundcolor=\color{green!20},
+  backgroundcolor=\color{green!10},
   numberstyle=\ttfamily\small,
   xleftmargin=20pt
 }
@@ -313,7 +313,7 @@
 %                                                                                                                       *
 %-----------------------------------------------------------------------------------------------------------------------*
 
-\title{\bf \Huge{ACAN2515 library for Arduino\\Version 2.0.3}}
+\title{\bf \Huge{ACAN2515 library for Arduino\\Version 2.0.4}}
 \author{Pierre Molinaro}
 \date {\today}
 
@@ -340,6 +340,8 @@
   \small
   \begin{tabular}{llp{11cm}}
     \textbf{Version} & \textbf{Date} & \textbf{Comment}\\
+    2.0.4 & April 27, 2020 & Added \texttt{dataFloat} to \texttt{CANMessage} (thanks to \texttt{koryphon})\\
+          &                & Added several forgotten \texttt{volatile}\\
     2.0.3 & January 9, 2020 & Interrupt pin is attached by \texttt{ACAN2515::beginWithoutFilterCheck} method only when there is configuration error (thanks to \texttt{mvSarma} for reporting this error). \\
     2.0.2 & June 15, 2019 & Added forgotten \texttt{ACAN2515::receiveBufferCount} and \texttt{ACAN2515::receiveBufferSize} methods (thanks to \texttt{Ede2016} for reporting this error). \\
           &               & ESP32: using \texttt{xSemaphoreGiveFromISR} instead of \texttt{xSemaphoreGive} in interrupt service routine. \\
@@ -677,18 +679,19 @@ class CANMessage {
   public : uint32_t id = 0 ;  // Frame identifier
   public : bool ext = false ; // false -> standard frame, true -> extended frame
   public : bool rtr = false ; // false -> data frame, true -> remote frame
-  public : uint8_t idx = 0 ;  // Used by the driver
+  public : uint8_t idx = 0 ;  // This field is used by the driver
   public : uint8_t len = 0 ;  // Length of data (0 ... 8)
   public : union {
-    uint64_t data64     ; // Caution: subject to endianness
-    uint32_t data32 [2] ; // Caution: subject to endianness
-    uint16_t data16 [4] ; // Caution: subject to endianness
+    uint64_t data64        ; // Caution: subject to endianness
+    uint32_t data32 [2]    ; // Caution: subject to endianness
+    uint16_t data16 [4]    ; // Caution: subject to endianness
+    float    dataFloat [2] ; // Caution: subject to endianness
     uint8_t  data   [8] = {0, 0, 0, 0, 0, 0, 0, 0} ;
   } ;
 } ;
 \end{lstlisting}}
 
-Note the message datas are defined by an {\bf\texttt{union}}. So message datas can be seen as height bytes, four 16-bit unsigned integers, two 32-bit, or one 64-bit. Be aware that multi-byte integers are subject to endianness (Cortex M4 processors of Teensy 3.x are little-endian).
+Note the message datas are defined by an {\bf\texttt{union}}. So message datas can be seen as height bytes, four 16-bit unsigned integers, two 32-bit, one 64-bit or two 32-bit floats. Be aware that multi-byte integers and floats are subject to endianness (Cortex M7 processor of Teensy 4.x are little-endian).
 
 The \texttt{idx} property is not used in CAN frames, but:
 \begin{itemize}

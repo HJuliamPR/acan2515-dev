@@ -30,17 +30,17 @@ def compileArduinoSketch (scriptDir, sketch, platform) :
     os.makedirs (buildPath)
 #---
   command = [
-    "/Applications/Arduino.app/Contents/Java/arduino-builder",
+    "/Applications/Teensyduino.app/Contents/Java/arduino-builder",
     "-quiet",
     "-compile",
     "-logger=machine",
-    "-hardware", "/Applications/Arduino.app/Contents/Java/hardware",
+    "-hardware", "/Applications/Teensyduino.app/Contents/Java/hardware",
     "-hardware", "/Users/pierremolinaro/Library/Arduino15/packages",
-#     "-hardware", "/Users/pierremolinaro/Documents/Arduino/hardware",
-    "-tools", "/Applications/Arduino.app/Contents/Java/tools-builder",
-    "-tools", "/Applications/Arduino.app/Contents/Java/hardware/tools/avr",
+#     "-hardware", "/Users/pierremolinaro/Documents/Teensyduino/hardware",
+    "-tools", "/Applications/Teensyduino.app/Contents/Java/tools-builder",
+    "-tools", "/Applications/Teensyduino.app/Contents/Java/hardware/tools/avr",
     "-tools", "/Users/pierremolinaro/Library/Arduino15/packages",
-    "-built-in-libraries", "/Applications/Arduino.app/Contents/Java/libraries",
+    "-built-in-libraries", "/Applications/Teensyduino.app/Contents/Java/libraries",
     "-libraries", "/Users/pierremolinaro/Documents/Arduino-dev/libraries",
     "-fqbn=" + platform,
     "-ide-version=10805",
